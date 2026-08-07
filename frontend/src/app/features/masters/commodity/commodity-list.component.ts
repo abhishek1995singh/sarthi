@@ -534,13 +534,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
       font-size: 12px;
     }
 
-    .settings-form { display: flex; flex-direction: column; gap: 8px; }
-    .dialog-context {
-      margin: -8px 0 14px;
-      color: var(--color-text-secondary);
-      font-size: 13px;
-      font-weight: 600;
-    }
+    .settings-form { display: flex; flex-direction: column; gap: 2px; }
 
     .no-data-prompt {
       display: flex; flex-direction: column; align-items: center; justify-content: center;

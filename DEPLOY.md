@@ -16,16 +16,19 @@ Recommended split:
 
 ---
 
-## 1) Backend (Render)
+## 1) Backend (Render) — live
 
-From `backend/`:
+| | |
+|--|--|
+| API | https://sarthi-api-t2bd.onrender.com/api |
+| Health | https://sarthi-api-t2bd.onrender.com/api/actuator/health |
+| Dashboard | https://dashboard.render.com/web/srv-d9qpir2jnfac73dv8eqg |
+| Repo | https://github.com/abhishek1995singh/sarthi |
+| Postgres | `sarthi-db` (free; expires ~30 days unless upgraded) |
 
-1. Push this repo to GitHub.
-2. In [Render](https://render.com): **New → Blueprint** → select repo → `backend/render.yaml`.
-3. Set env var `CORS_ORIGINS` to your Vercel URL, e.g.  
-   `https://sarthi-xxx.vercel.app`
-4. Deploy. Note the public URL, e.g. `https://sarthi-api.onrender.com`  
-   (API base is `https://sarthi-api.onrender.com/api`).
+`CORS_ORIGINS` is currently `http://localhost:4200`. After Vercel deploy, set it to your Vercel origin and redeploy.
+
+To recreate from scratch: push repo → **New → Blueprint** with root `render.yaml`, or CLI `render services create` + `render postgres create`.
 
 Local Docker check:
 

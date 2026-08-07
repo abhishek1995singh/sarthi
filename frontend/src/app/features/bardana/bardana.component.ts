@@ -488,17 +488,17 @@ type TypeFilter = '' | 'RECEIVED' | 'ISSUED' | 'RETURNED' | 'ADJUSTMENT';
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
+      gap: 4px 12px;
     }
     .full-span { grid-column: 1 / -1; }
-    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
     @media (min-width: 720px) {
       .legend { grid-template-columns: 1fr 1fr; }
       .kpi-row { gap: 12px; }
     }
-    @media (max-width: 700px) {
+    @media (max-width: 719px) {
       .form-grid { grid-template-columns: 1fr; }
+      .page-header .btn { width: 100%; }
     }
   `]
 })
