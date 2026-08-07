@@ -1,5 +1,6 @@
 package com.sarthi.cashbook.service;
 
+import com.sarthi.audit.service.AuditService;
 import com.sarthi.cashbook.dto.CashBookDayResponse;
 import com.sarthi.cashbook.dto.CashBookEntryRequest;
 import com.sarthi.cashbook.dto.CashBookEntryResponse;
@@ -21,11 +22,14 @@ public class CashBookService {
 
     private final CashBookEntryRepository cashBookEntryRepository;
     private final LedgerPostingService ledgerPostingService;
+    private final AuditService auditService;
 
     public CashBookService(CashBookEntryRepository cashBookEntryRepository,
-                           LedgerPostingService ledgerPostingService) {
+                           LedgerPostingService ledgerPostingService,
+                           AuditService auditService) {
         this.cashBookEntryRepository = cashBookEntryRepository;
         this.ledgerPostingService = ledgerPostingService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -61,13 +65,27 @@ public class CashBookService {
                 request.remarks(),
                 username
         );
-        return CashBookEntryResponse.from(entry);
+        CashBookEntryResponse response = CashBookEntryResponse.from(entry);
+        auditService.record("CashBook", entry.getId(), "CREATE", null,
+                AuditService.mapOf(
+                        "type", response.type(),
+                        "amount", response.amount(),
+                        "party", response.partyName(),
+                        "entryDate", response.entryDate() != null ? response.entryDate().toString() : null
+                ));
+        return response;
     }
 
     @Transactional
     public CashBookDayResponse setOpeningBalance(OpeningBalanceRequest request) {
         DailyCashBalance balance = ledgerPostingService.setOpeningBalance(
                 request.date(), request.openingBalance());
+        auditService.record("CashBook", balance.getId(), "UPDATE", null,
+                AuditService.mapOf(
+                        "kind", "OPENING_BALANCE",
+                        "date", request.date().toString(),
+                        "openingBalance", request.openingBalance()
+                ));
         List<CashBookEntryResponse> entries = cashBookEntryRepository
                 .findByEntryDateOrderByIdAsc(request.date())
                 .stream()
@@ -79,6 +97,8 @@ public class CashBookService {
     @Transactional
     public CashBookDayResponse finalizeDay(LocalDate date) {
         DailyCashBalance balance = ledgerPostingService.finalizeDay(date);
+        auditService.record("CashBook", balance.getId(), "UPDATE", null,
+                AuditService.mapOf("kind", "FINALIZE_DAY", "date", date.toString(), "finalized", true));
         List<CashBookEntryResponse> entries = cashBookEntryRepository.findByEntryDateOrderByIdAsc(date)
                 .stream()
                 .map(CashBookEntryResponse::from)

@@ -1,5 +1,6 @@
 package com.sarthi.sale.service;
 
+import com.sarthi.audit.service.AuditService;
 import com.sarthi.common.exception.BusinessValidationException;
 import com.sarthi.common.exception.ResourceNotFoundException;
 import com.sarthi.master.entity.AppUser;
@@ -32,6 +33,7 @@ public class SaleService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final BardanaService bardanaService;
+    private final AuditService auditService;
 
     public SaleService(SaleRepository saleRepository,
                        PartyRepository partyRepository,
@@ -39,7 +41,8 @@ public class SaleService {
                        CommoditySettingsRepository commoditySettingsRepository,
                        UserRepository userRepository,
                        StockService stockService,
-                       BardanaService bardanaService) {
+                       BardanaService bardanaService,
+                       AuditService auditService) {
         this.saleRepository = saleRepository;
         this.partyRepository = partyRepository;
         this.commodityVarietyRepository = commodityVarietyRepository;
@@ -47,6 +50,7 @@ public class SaleService {
         this.userRepository = userRepository;
         this.stockService = stockService;
         this.bardanaService = bardanaService;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -71,7 +75,9 @@ public class SaleService {
         sale.setPaymentStatus(Sale.PaymentStatus.UNPAID);
         sale.setConfirmed(false);
         applyRequestToSale(sale, request);
-        return saleRepository.save(sale);
+        Sale saved = saleRepository.save(sale);
+        auditService.record("Sale", saved.getId(), "CREATE", null, saleSnapshot(saved));
+        return saved;
     }
 
     @Transactional
@@ -80,8 +86,11 @@ public class SaleService {
         if (sale.isConfirmed()) {
             throw new BusinessValidationException("Confirmed sales cannot be edited. Only drafts can be updated.");
         }
+        var old = saleSnapshot(sale);
         applyRequestToSale(sale, request);
-        return saleRepository.save(sale);
+        Sale saved = saleRepository.save(sale);
+        auditService.record("Sale", saved.getId(), "UPDATE", old, saleSnapshot(saved));
+        return saved;
     }
 
     private void applyRequestToSale(Sale sale, SaleRequest request) {
@@ -230,6 +239,9 @@ public class SaleService {
         sale.setConfirmed(true);
         Sale saved = saleRepository.save(sale);
         bardanaService.postFromSale(saved);
+        auditService.record("Sale", saved.getId(), "CONFIRM",
+                AuditService.mapOf("confirmed", false),
+                saleSnapshot(saved));
         return saved;
     }
 
@@ -239,7 +251,19 @@ public class SaleService {
         if (sale.isConfirmed()) {
             throw new BusinessValidationException("Cannot delete a confirmed sale.");
         }
+        var snapshot = saleSnapshot(sale);
         saleRepository.delete(sale);
+        auditService.record("Sale", id, "DELETE", snapshot, null);
+    }
+
+    private java.util.Map<String, Object> saleSnapshot(Sale s) {
+        return AuditService.mapOf(
+                "buyer", s.getBuyer() != null ? s.getBuyer().getName() : null,
+                "totalAmount", s.getTotalAmount(),
+                "quantityQuintals", s.getQuantityQuintals(),
+                "confirmed", s.isConfirmed(),
+                "paymentStatus", s.getPaymentStatus() != null ? s.getPaymentStatus().name() : null
+        );
     }
 
     private static BigDecimal nz(BigDecimal value) {

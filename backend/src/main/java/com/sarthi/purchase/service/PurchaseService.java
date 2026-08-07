@@ -1,5 +1,6 @@
 package com.sarthi.purchase.service;
 
+import com.sarthi.audit.service.AuditService;
 import com.sarthi.bardana.service.BardanaService;
 import com.sarthi.common.exception.BusinessValidationException;
 import com.sarthi.common.exception.ResourceNotFoundException;
@@ -32,6 +33,7 @@ public class PurchaseService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final BardanaService bardanaService;
+    private final AuditService auditService;
 
     public PurchaseService(PurchaseRepository purchaseRepository,
                            PartyRepository partyRepository,
@@ -39,7 +41,8 @@ public class PurchaseService {
                            CommoditySettingsRepository commoditySettingsRepository,
                            UserRepository userRepository,
                            StockService stockService,
-                           BardanaService bardanaService) {
+                           BardanaService bardanaService,
+                           AuditService auditService) {
         this.purchaseRepository = purchaseRepository;
         this.partyRepository = partyRepository;
         this.commodityVarietyRepository = commodityVarietyRepository;
@@ -47,6 +50,7 @@ public class PurchaseService {
         this.userRepository = userRepository;
         this.stockService = stockService;
         this.bardanaService = bardanaService;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +140,9 @@ public class PurchaseService {
         purchase.setRemarks(request.remarks());
         purchase.setCreatedBy(currentUser);
 
-        return purchaseRepository.save(purchase);
+        Purchase saved = purchaseRepository.save(purchase);
+        auditService.record("Purchase", saved.getId(), "CREATE", null, purchaseSnapshot(saved));
+        return saved;
     }
 
     @Transactional
@@ -156,6 +162,9 @@ public class PurchaseService {
         purchase.setConfirmed(true);
         Purchase saved = purchaseRepository.save(purchase);
         bardanaService.postFromPurchase(saved);
+        auditService.record("Purchase", saved.getId(), "CONFIRM",
+                AuditService.mapOf("confirmed", false),
+                purchaseSnapshot(saved));
         return saved;
     }
 
@@ -165,6 +174,18 @@ public class PurchaseService {
         if (purchase.isConfirmed()) {
             throw new BusinessValidationException("Cannot delete a confirmed purchase.");
         }
+        var snapshot = purchaseSnapshot(purchase);
         purchaseRepository.delete(purchase);
+        auditService.record("Purchase", id, "DELETE", snapshot, null);
+    }
+
+    private java.util.Map<String, Object> purchaseSnapshot(Purchase p) {
+        return AuditService.mapOf(
+                "party", p.getParty() != null ? p.getParty().getName() : null,
+                "netPayable", p.getNetPayable(),
+                "weightQuintals", p.getWeightQuintals(),
+                "confirmed", p.isConfirmed(),
+                "paymentStatus", p.getPaymentStatus() != null ? p.getPaymentStatus().name() : null
+        );
     }
 }

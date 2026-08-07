@@ -50,9 +50,51 @@ export interface ApiResponse<T> {
 
 export interface AuthResponse {
   token: string;
+  id?: number;
   username: string;
   fullName: string;
   role: string;
+  preferredLocale?: string;
+  preferredTheme?: string;
+}
+
+export interface UserAccount {
+  id: number;
+  username: string;
+  fullName: string;
+  role: string;
+  active: boolean;
+  preferredLocale: string;
+  preferredTheme: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserPreferences {
+  preferredLocale: string;
+  preferredTheme: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  entityName: string;
+  entityId: number;
+  action: string;
+  changedBy?: number;
+  changedByUsername?: string;
+  changedByFullName?: string;
+  changedAt: string;
+  oldValue?: Record<string, unknown> | null;
+  newValue?: Record<string, unknown> | null;
+  ipAddress?: string;
+}
+
+export interface AuditPage {
+  content: AuditLogEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 export interface Purchase {

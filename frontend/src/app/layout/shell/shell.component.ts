@@ -7,10 +7,12 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatButtonModule } from '@angular/material/button';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
+import { SettingsService } from '../../core/services/settings.service';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ThemeId } from '../../core/theme/themes';
+import { LocaleCode } from '../../core/i18n/translations';
 
 interface NavItem {
   path: string;
@@ -120,10 +122,10 @@ interface NavItem {
               <span class="chip-label">{{ i18n.locale() === 'hi' ? ('lang.hi' | t) : ('lang.en' | t) }}</span>
             </button>
             <mat-menu #langMenu="matMenu">
-              <button mat-menu-item (click)="i18n.setLocale('en')">
+              <button mat-menu-item (click)="setLocale('en')">
                 <span>{{ 'lang.en' | t }}</span>
               </button>
-              <button mat-menu-item (click)="i18n.setLocale('hi')">
+              <button mat-menu-item (click)="setLocale('hi')">
                 <span>{{ 'lang.hi' | t }}</span>
               </button>
             </mat-menu>
@@ -557,14 +559,16 @@ export class ShellComponent implements OnInit {
     { path: '/masters/parties',     icon: 'people',         labelKey: 'nav.parties',  sectionKey: 'nav.masters' },
     { path: '/masters/commodities', icon: 'grain',          labelKey: 'nav.commodities',   sectionKey: 'nav.masters' },
     { path: '/reports',             icon: 'assessment',     labelKey: 'nav.reportsPage',       sectionKey: 'nav.reports' },
+    { path: '/settings',            icon: 'settings',       labelKey: 'nav.settings',          sectionKey: 'nav.system' },
   ];
 
-  sectionKeys = ['nav.overview', 'nav.transactions', 'nav.masters', 'nav.reports'];
+  sectionKeys = ['nav.overview', 'nav.transactions', 'nav.masters', 'nav.reports', 'nav.system'];
 
   constructor(
     public authService: AuthService,
     public i18n: I18nService,
     public theme: ThemeService,
+    private settings: SettingsService,
     private router: Router
   ) {}
 
@@ -577,6 +581,26 @@ export class ShellComponent implements OnInit {
 
   setTheme(id: ThemeId) {
     this.theme.setTheme(id);
+    this.persistPrefs();
+  }
+
+  setLocale(locale: LocaleCode) {
+    this.i18n.setLocale(locale);
+    this.persistPrefs();
+  }
+
+  private persistPrefs() {
+    if (!this.authService.isLoggedIn()) return;
+    this.settings.savePreferences({
+      preferredLocale: this.i18n.locale(),
+      preferredTheme: this.theme.themeId()
+    }).subscribe({
+      next: res => this.authService.patchLocalUser({
+        preferredLocale: res.data.preferredLocale,
+        preferredTheme: res.data.preferredTheme
+      }),
+      error: () => {}
+    });
   }
 
   @HostListener('window:resize')

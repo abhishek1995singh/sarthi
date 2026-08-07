@@ -1,5 +1,6 @@
 package com.sarthi.master.service;
 
+import com.sarthi.audit.service.AuditService;
 import com.sarthi.common.exception.BusinessValidationException;
 import com.sarthi.common.exception.ResourceNotFoundException;
 import com.sarthi.master.dto.PartyRequest;
@@ -15,9 +16,11 @@ import java.util.List;
 public class PartyService {
 
     private final PartyRepository partyRepository;
+    private final AuditService auditService;
 
-    public PartyService(PartyRepository partyRepository) {
+    public PartyService(PartyRepository partyRepository, AuditService auditService) {
         this.partyRepository = partyRepository;
+        this.auditService = auditService;
     }
 
     public List<PartyResponse> getAll() {
@@ -42,21 +45,29 @@ public class PartyService {
         }
         Party party = new Party();
         mapRequest(party, request);
-        return PartyResponse.from(partyRepository.save(party));
+        Party saved = partyRepository.save(party);
+        auditService.record("Party", saved.getId(), "CREATE", null, partySnapshot(saved));
+        return PartyResponse.from(saved);
     }
 
     @Transactional
     public PartyResponse update(Long id, PartyRequest request) {
         Party party = findOrThrow(id);
+        var old = partySnapshot(party);
         mapRequest(party, request);
-        return PartyResponse.from(partyRepository.save(party));
+        Party saved = partyRepository.save(party);
+        auditService.record("Party", saved.getId(), "UPDATE", old, partySnapshot(saved));
+        return PartyResponse.from(saved);
     }
 
     @Transactional
     public void deactivate(Long id) {
         Party party = findOrThrow(id);
+        var old = partySnapshot(party);
         party.setActive(false);
         partyRepository.save(party);
+        auditService.record("Party", id, "DELETE", old,
+                AuditService.mapOf("active", false, "name", party.getName()));
     }
 
     private Party findOrThrow(Long id) {
@@ -72,5 +83,15 @@ public class PartyService {
         party.setAddress(req.address());
         party.setGstin(req.gstin());
         if (req.openingBalance() != null) party.setOpeningBalance(req.openingBalance());
+    }
+
+    private java.util.Map<String, Object> partySnapshot(Party p) {
+        return AuditService.mapOf(
+                "name", p.getName(),
+                "type", p.getType() != null ? p.getType().name() : null,
+                "phone", p.getPhone(),
+                "active", p.isActive(),
+                "openingBalance", p.getOpeningBalance()
+        );
     }
 }

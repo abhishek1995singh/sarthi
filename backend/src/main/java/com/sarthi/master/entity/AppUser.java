@@ -26,6 +26,12 @@ public class AppUser {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "preferred_locale", nullable = false, length = 5)
+    private String preferredLocale = "en";
+
+    @Column(name = "preferred_theme", nullable = false, length = 32)
+    private String preferredTheme = "harvest";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -54,6 +60,10 @@ public class AppUser {
     public void setRole(String r) { this.role = r; }
     public boolean isActive() { return active; }
     public void setActive(boolean a) { this.active = a; }
+    public String getPreferredLocale() { return preferredLocale; }
+    public void setPreferredLocale(String preferredLocale) { this.preferredLocale = preferredLocale; }
+    public String getPreferredTheme() { return preferredTheme; }
+    public void setPreferredTheme(String preferredTheme) { this.preferredTheme = preferredTheme; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
