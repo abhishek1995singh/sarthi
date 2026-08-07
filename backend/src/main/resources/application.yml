@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: sarthi-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sarthi_db
+    username: ${DB_USERNAME:sarthi}
+    password: ${DB_PASSWORD:sarthi123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:sarthi-super-secret-key-change-this-in-production-must-be-256-bits}
+    expiration-ms: 86400000   # 24 hours
+
+  cors:
+    # Comma-separated list. Override with CORS_ORIGINS in production (include your Vercel URL).
+    allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:4201}
+
+logging:
+  level:
+    com.sarthi: INFO
+    org.springframework.security: INFO
+    org.flywaydb: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
