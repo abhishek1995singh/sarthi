@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Warn when committing code without staging the knowledge base.
+# Does not block (exit 0) — agents/humans can still commit; Cursor rule covers semantics.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if "$ROOT/scripts/kb-append-commit.sh" --staged; then
+  :
+else
+  echo ""
+  echo ">>> Reminder: stage docs/KNOWLEDGE_BASE.md if this commit changes product knowledge."
+  echo ">>> See docs/KNOWLEDGE_BASE.md → How this file stays updated"
+  echo ""
+fi
+exit 0

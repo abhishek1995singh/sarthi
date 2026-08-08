@@ -1,0 +1,37 @@
+---
+description: Playwright MCP and E2E testing for Sarthi
+globs: e2e/**/*
+alwaysApply: false
+---
+
+# Sarthi Playwright testing
+
+## Stack
+
+- **UI**: Angular at `http://localhost:4200`
+- **API**: Spring Boot at `http://localhost:8080/api`
+- **Default login**: `admin` / `Admin@123`
+
+## MCP (interactive)
+
+Use Playwright MCP when exploring or debugging UI flows:
+
+1. Start backend + frontend locally
+2. Navigate to `http://localhost:4200/login`
+3. Login selectors: `#login-username`, `#login-password`, `#login-submit`
+4. After login, shell nav uses link text: Dashboard, Purchase, Sale, Cash Book, Ledger, Bardana, Party Master, Commodities, Reports, Settings
+
+## Automated E2E
+
+Specs live in `e2e/tests/`. Run from `e2e/`:
+
+```bash
+npm install && npx playwright install chromium
+npm test
+```
+
+Auth setup saves session to `e2e/playwright/.auth/user.json` for faster runs.
+
+## Key routes
+
+`/dashboard`, `/purchase`, `/sale`, `/cashbook`, `/ledger`, `/bardana`, `/masters/parties`, `/masters/commodities`, `/reports`, `/settings`

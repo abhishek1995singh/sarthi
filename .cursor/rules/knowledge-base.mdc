@@ -1,0 +1,30 @@
+---
+description: Keep docs/KNOWLEDGE_BASE.md current on every meaningful commit
+alwaysApply: true
+---
+
+# Knowledge base maintenance
+
+## Source of truth
+
+[`docs/KNOWLEDGE_BASE.md`](docs/KNOWLEDGE_BASE.md) is the project knowledge base for humans and agents.
+
+## When you commit
+
+Before creating a git commit that changes behavior, architecture, APIs, auth/roles, deploy, or shared UX patterns:
+
+1. Update the relevant sections in `docs/KNOWLEDGE_BASE.md` (not only the Recent commits list).
+2. Stage `docs/KNOWLEDGE_BASE.md` with the same commit.
+3. Optionally run `./scripts/kb-append-commit.sh` after commit to append the mechanical log line (or let `.githooks/post-commit` do it).
+
+## Skip KB content edits only when
+
+- Typo-only / comment-only / pure formatting
+- Lockfile-only or generated artifact churn
+
+Still prefer a Recent commits line for non-trivial fixes.
+
+## Do not put in the KB
+
+- Secrets, API keys, production DB passwords
+- Long code dumps (link to paths instead)

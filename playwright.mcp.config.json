@@ -1,0 +1,19 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false
+    }
+  },
+  "network": {
+    "allowedOrigins": [
+      "http://localhost:4200",
+      "http://localhost:4201",
+      "http://localhost:8080"
+    ]
+  },
+  "timeouts": {
+    "action": 10000,
+    "navigation": 60000
+  }
+}

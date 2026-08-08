@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# After every commit, append a mechanical line to the KB commit log.
+# Leaves a dirty working tree for the next commit (or amend if you choose).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+"$ROOT/scripts/kb-append-commit.sh" || true
