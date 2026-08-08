@@ -166,6 +166,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-08-08 — Update knowledge base commit log after gitignore change. (9dbb593)
 - 2026-08-08 — Ignore local upload data and keep the knowledge base current. (8e06f70)
 - 2026-08-08 — Add file storage service and enhance purchase/sale management. (2df1a4a)
 - 2026-08-08 — Update knowledge base with recent commit log entry for Playwright E2E testing setup. (020c7ee)
