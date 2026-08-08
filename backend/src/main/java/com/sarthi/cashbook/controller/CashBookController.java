@@ -6,6 +6,7 @@ import com.sarthi.cashbook.dto.CashBookEntryResponse;
 import com.sarthi.cashbook.dto.OpeningBalanceRequest;
 import com.sarthi.cashbook.service.CashBookService;
 import com.sarthi.common.response.ApiResponse;
+import com.sarthi.common.response.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,16 @@ public class CashBookController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         LocalDate target = date != null ? date : LocalDate.now();
         return ResponseEntity.ok(ApiResponse.ok(cashBookService.getDay(target)));
+    }
+
+    @GetMapping("/entries")
+    public ResponseEntity<ApiResponse<PageResponse<CashBookEntryResponse>>> getAllEntries(
+            @RequestParam(required = false, defaultValue = "0") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        PageResponse<CashBookEntryResponse> entries = cashBookService.getAllEntries(page, size, fromDate, toDate);
+        return ResponseEntity.ok(ApiResponse.ok(entries));
     }
 
     @PostMapping("/entries")

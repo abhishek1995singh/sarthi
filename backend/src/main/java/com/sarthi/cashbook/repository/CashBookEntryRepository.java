@@ -1,6 +1,8 @@
 package com.sarthi.cashbook.repository;
 
 import com.sarthi.cashbook.entity.CashBookEntry;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,10 @@ public interface CashBookEntryRepository extends JpaRepository<CashBookEntry, Lo
     List<CashBookEntry> findByEntryDateOrderByIdAsc(LocalDate entryDate);
 
     List<CashBookEntry> findByEntryDateBetweenOrderByEntryDateAscIdAsc(LocalDate from, LocalDate to);
+
+    Page<CashBookEntry> findByOrderByEntryDateDescIdDesc(Pageable pageable);
+
+    Page<CashBookEntry> findByEntryDateBetweenOrderByEntryDateDescIdDesc(LocalDate from, LocalDate to, Pageable pageable);
 
     Optional<CashBookEntry> findFirstByOrderByEntryDateDescIdDesc();
 

@@ -9,7 +9,11 @@ import com.sarthi.cashbook.entity.CashBookEntry;
 import com.sarthi.cashbook.entity.DailyCashBalance;
 import com.sarthi.cashbook.repository.CashBookEntryRepository;
 import com.sarthi.common.exception.BusinessValidationException;
+import com.sarthi.common.response.PageResponse;
 import com.sarthi.ledger.service.LedgerPostingService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +23,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class CashBookService {
+
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final CashBookEntryRepository cashBookEntryRepository;
     private final LedgerPostingService ledgerPostingService;
@@ -104,5 +111,23 @@ public class CashBookService {
                 .map(CashBookEntryResponse::from)
                 .collect(Collectors.toList());
         return CashBookDayResponse.of(balance, entries);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<CashBookEntryResponse> getAllEntries(Integer page, Integer size, LocalDate fromDate, LocalDate toDate) {
+        int safePage = page != null ? Math.max(page, 0) : 0;
+        int safeSize = size != null ? Math.min(Math.max(size, 1), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        Page<CashBookEntry> result;
+
+        if (fromDate != null && toDate != null) {
+            result = cashBookEntryRepository.findByEntryDateBetweenOrderByEntryDateDescIdDesc(fromDate, toDate, pageable);
+        } else {
+            result = cashBookEntryRepository.findByOrderByEntryDateDescIdDesc(pageable);
+        }
+
+        Page<CashBookEntryResponse> responsePage = result.map(CashBookEntryResponse::from);
+        return PageResponse.from(responsePage);
     }
 }

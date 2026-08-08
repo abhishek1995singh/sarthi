@@ -1,28 +1,30 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CashbookService } from '../../core/services/cashbook.service';
 import { PartyService } from '../../core/services/party.service';
 import { PurchaseService } from '../../core/services/purchase.service';
-import { CashBookDay, CashBookEntry, Party, Purchase } from '../../core/models/models';
+import { CashBookDay, CashBookEntry, Party, Purchase, PageResult } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
 type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
+type ViewMode = 'day' | 'all';
 
 @Component({
   selector: 'app-cashbook',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
+    CommonModule, ReactiveFormsModule, FormsModule, MatTableModule, MatButtonModule, MatIconModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatPaginatorModule, MatSnackBarModule,
     StatusBadgeComponent, TranslatePipe
   ],
   template: `
@@ -37,37 +39,59 @@ type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
             class="btn btn-ghost"
             type="button"
             (click)="openOpeningForm()"
-            *ngIf="day && !day.finalized && day.entries.length === 0"
+            *ngIf="viewMode === 'day' && day && !day.finalized && day.entries.length === 0"
             id="btn-opening">
             <mat-icon>account_balance</mat-icon> {{ 'cashbook.setOpening' | t }}
           </button>
-          <button class="btn btn-ghost" type="button" (click)="openEntryForm('PAYMENT')" id="btn-payment" [disabled]="day?.finalized">
+          <button class="btn btn-ghost" type="button" (click)="openEntryForm('PAYMENT')" id="btn-payment" [disabled]="viewMode === 'day' && day?.finalized">
             <mat-icon>call_made</mat-icon> {{ 'status.PAYMENT' | t }}
           </button>
-          <button class="btn btn-primary" type="button" (click)="openEntryForm('RECEIPT')" id="btn-receipt" [disabled]="day?.finalized">
+          <button class="btn btn-primary" type="button" (click)="openEntryForm('RECEIPT')" id="btn-receipt" [disabled]="viewMode === 'day' && day?.finalized">
             <mat-icon>call_received</mat-icon> {{ 'status.RECEIPT' | t }}
           </button>
         </div>
       </header>
 
-      <!-- Date navigator -->
-      <section class="day-nav card">
-        <button type="button" class="nav-btn" (click)="shiftDay(-1)" aria-label="Previous day">
-          <mat-icon>chevron_left</mat-icon>
+      <!-- View mode toggle -->
+      <section class="view-toggle card">
+        <button 
+          type="button" 
+          class="toggle-btn" 
+          [class.active]="viewMode === 'day'" 
+          (click)="setViewMode('day')">
+          <mat-icon>today</mat-icon>
+          Day View
         </button>
-        <div class="day-center">
-          <input
-            type="date"
-            class="date-input"
-            [value]="selectedDate"
-            (change)="onDateChange($event)"
-            id="cashbook-date" />
-          <button type="button" class="today-chip" *ngIf="!isToday" (click)="goToday()">Today</button>
-        </div>
-        <button type="button" class="nav-btn" (click)="shiftDay(1)" aria-label="Next day" [disabled]="isToday">
-          <mat-icon>chevron_right</mat-icon>
+        <button 
+          type="button" 
+          class="toggle-btn" 
+          [class.active]="viewMode === 'all'" 
+          (click)="setViewMode('all')">
+          <mat-icon>view_list</mat-icon>
+          All Entries
         </button>
       </section>
+
+      <!-- Day view content -->
+      <ng-container *ngIf="viewMode === 'day'">
+        <!-- Date navigator -->
+        <section class="day-nav card">
+          <button type="button" class="nav-btn" (click)="shiftDay(-1)" aria-label="Previous day">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div class="day-center">
+            <input
+              type="date"
+              class="date-input"
+              [value]="selectedDate"
+              (change)="onDateChange($event)"
+              id="cashbook-date" />
+            <button type="button" class="today-chip" *ngIf="!isToday" (click)="goToday()">Today</button>
+          </div>
+          <button type="button" class="nav-btn" (click)="shiftDay(1)" aria-label="Next day" [disabled]="isToday">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </section>
 
       <div *ngIf="loading && !day" class="loading-state card">
         <mat-icon class="spin">autorenew</mat-icon>
@@ -215,8 +239,131 @@ type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
         </ng-container>
       </ng-container>
 
+      <!-- All Entries View -->
+      <ng-container *ngIf="viewMode === 'all'">
+        <section class="filters card">
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>From Date</mat-label>
+            <input matInput type="date" [(ngModel)]="fromDate" (change)="loadAllEntries()">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>To Date</mat-label>
+            <input matInput type="date" [(ngModel)]="toDate" (change)="loadAllEntries()">
+          </mat-form-field>
+          <button type="button" class="btn btn-ghost" (click)="clearFilters()">
+            <mat-icon>clear</mat-icon>
+            Clear Filters
+          </button>
+        </section>
+
+        <div *ngIf="loading && !allEntries" class="loading-state card">
+          <mat-icon class="spin">autorenew</mat-icon>
+          <span>Loading entries…</span>
+        </div>
+
+        <ng-container *ngIf="allEntries">
+          <div *ngIf="loading" class="loading-state card compact">
+            <mat-icon class="spin">autorenew</mat-icon>
+            <span>Refreshing…</span>
+          </div>
+
+          <ng-container *ngIf="!loading">
+            <!-- Mobile entries -->
+            <div class="mobile-list" *ngIf="allEntries.content.length; else emptyAllEntries">
+              <article class="entry-card card" *ngFor="let e of allEntries.content" [attr.data-type]="e.type">
+                <div class="row-top">
+                  <app-status-badge [kind]="e.type"></app-status-badge>
+                  <strong [class.text-success]="e.type === 'RECEIPT'" [class.text-danger]="e.type === 'PAYMENT'">
+                    {{ e.type === 'PAYMENT' ? '−' : '+' }}₹{{ e.amount | number:'1.2-2' }}
+                  </strong>
+                </div>
+                <div class="row-title">{{ e.partyName || 'Cash entry' }}</div>
+                <div class="row-meta">
+                  {{ e.entryDate | date:'dd MMM yyyy' }} ·
+                  <span *ngIf="e.linkedPurchaseId">Purchase #{{ e.linkedPurchaseId }} · </span>
+                  <span *ngIf="e.linkedSaleId">Sale #{{ e.linkedSaleId }} · </span>
+                  bal ₹{{ e.runningBalance | number:'1.0-0' }}
+                  <span *ngIf="e.createdByFullName"> · {{ e.createdByFullName }}</span>
+                </div>
+                <p class="remarks" *ngIf="e.remarks">{{ e.remarks }}</p>
+              </article>
+            </div>
+
+            <ng-template #emptyAllEntries>
+              <div class="empty-state card">
+                <mat-icon>account_balance_wallet</mat-icon>
+                <h2>No cash entries found</h2>
+                <p>No entries match the selected criteria.</p>
+              </div>
+            </ng-template>
+
+            <!-- Desktop table -->
+            <div class="card table-only table-scroll" *ngIf="allEntries.content.length">
+              <table mat-table [dataSource]="allEntries.content" class="cashbook-table">
+                <ng-container matColumnDef="date">
+                  <th mat-header-cell *matHeaderCellDef>Date</th>
+                  <td mat-cell *matCellDef="let e">{{ e.entryDate | date:'dd MMM yyyy' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="type">
+                  <th mat-header-cell *matHeaderCellDef>Type</th>
+                  <td mat-cell *matCellDef="let e">
+                    <app-status-badge [kind]="e.type"></app-status-badge>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="party">
+                  <th mat-header-cell *matHeaderCellDef>Party</th>
+                  <td mat-cell *matCellDef="let e">{{ e.partyName || '—' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="linked">
+                  <th mat-header-cell *matHeaderCellDef>Linked</th>
+                  <td mat-cell *matCellDef="let e">
+                    <span *ngIf="e.linkedPurchaseId">Purchase #{{ e.linkedPurchaseId }}</span>
+                    <span *ngIf="e.linkedSaleId">Sale #{{ e.linkedSaleId }}</span>
+                    <span *ngIf="!e.linkedPurchaseId && !e.linkedSaleId">—</span>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="amount">
+                  <th mat-header-cell *matHeaderCellDef>Amount</th>
+                  <td mat-cell *matCellDef="let e"
+                      [class.text-success]="e.type === 'RECEIPT'"
+                      [class.text-danger]="e.type === 'PAYMENT'">
+                    {{ e.type === 'PAYMENT' ? '−' : '+' }} ₹{{ e.amount | number:'1.2-2' }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="balance">
+                  <th mat-header-cell *matHeaderCellDef>Running Balance</th>
+                  <td mat-cell *matCellDef="let e" class="balance-cell">₹{{ e.runningBalance | number:'1.2-2' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="remarks">
+                  <th mat-header-cell *matHeaderCellDef>Remarks</th>
+                  <td mat-cell *matCellDef="let e">{{ e.remarks || '—' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="by">
+                  <th mat-header-cell *matHeaderCellDef>By</th>
+                  <td mat-cell *matCellDef="let e">{{ e.createdByFullName }}</td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="displayedColumnsAll"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumnsAll;"></tr>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <mat-paginator
+              *ngIf="allEntries.totalElements > 0"
+              class="card paginator"
+              [length]="allEntries.totalElements"
+              [pageIndex]="allEntriesPageIndex"
+              [pageSize]="allEntriesPageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [showFirstLastButtons]="true"
+              (page)="onAllEntriesPage($event)">
+            </mat-paginator>
+          </ng-container>
+        </ng-container>
+      </ng-container>
+
       <!-- Mobile sticky actions -->
-      <div class="mobile-actions" *ngIf="day && !day.finalized">
+      <div class="mobile-actions" *ngIf="viewMode === 'day' && day && !day.finalized">
         <button type="button" class="btn btn-ghost" (click)="openEntryForm('PAYMENT')" id="btn-payment-mobile">
           <mat-icon>call_made</mat-icon>
           {{ 'status.PAYMENT' | t }}
@@ -315,6 +462,65 @@ type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
     }
 
     .desktop-actions { display: none; }
+
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+    .toggle-btn {
+      flex: 1;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-secondary);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .toggle-btn mat-icon {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+    }
+    .toggle-btn.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #fff;
+    }
+    .toggle-btn:not(.active):hover {
+      background: var(--color-surface-raised);
+      border-color: var(--color-primary-soft);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      align-items: flex-start;
+    }
+    .filters .date-field {
+      flex: 1;
+      min-width: 140px;
+    }
+    .filters .btn {
+      margin-top: 8px;
+    }
+
+    .paginator {
+      margin-top: 12px;
+    }
 
     .day-nav {
       display: flex;
@@ -624,12 +830,21 @@ type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
   `]
 })
 export class CashbookComponent implements OnInit {
+  viewMode: ViewMode = 'day';
   day: CashBookDay | null = null;
+  allEntries: PageResult<CashBookEntry> | null = null;
   loading = false;
   saving = false;
   selectedDate = new Date().toISOString().slice(0, 10);
   displayedColumns = ['type', 'party', 'linked', 'amount', 'balance', 'remarks', 'by'];
+  displayedColumnsAll = ['date', 'type', 'party', 'linked', 'amount', 'balance', 'remarks', 'by'];
   entryFilter: EntryFilter = '';
+
+  allEntriesPageIndex = 0;
+  allEntriesPageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
+  fromDate: string | null = null;
+  toDate: string | null = null;
 
   parties: Party[] = [];
   unpaidPurchases: Purchase[] = [];
@@ -812,5 +1027,44 @@ export class CashbookComponent implements OnInit {
         this.snack.open(err?.error?.message || 'Failed to finalize', 'OK', { duration: 5000 });
       }
     });
+  }
+
+  setViewMode(mode: ViewMode) {
+    this.viewMode = mode;
+    if (mode === 'all' && !this.allEntries) {
+      this.loadAllEntries();
+    }
+  }
+
+  loadAllEntries() {
+    this.loading = true;
+    this.cashbookService.getAllEntries(
+      this.allEntriesPageIndex,
+      this.allEntriesPageSize,
+      this.fromDate || undefined,
+      this.toDate || undefined
+    ).subscribe({
+      next: res => {
+        this.allEntries = res.data;
+        this.loading = false;
+      },
+      error: err => {
+        this.loading = false;
+        this.snack.open(err?.error?.message || 'Failed to load entries', 'OK', { duration: 4000 });
+      }
+    });
+  }
+
+  onAllEntriesPage(event: PageEvent) {
+    this.allEntriesPageIndex = event.pageIndex;
+    this.allEntriesPageSize = event.pageSize;
+    this.loadAllEntries();
+  }
+
+  clearFilters() {
+    this.fromDate = null;
+    this.toDate = null;
+    this.allEntriesPageIndex = 0;
+    this.loadAllEntries();
   }
 }
