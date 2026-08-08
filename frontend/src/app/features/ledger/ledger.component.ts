@@ -1,26 +1,30 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { LedgerService } from '../../core/services/ledger.service';
 import { PartyService } from '../../core/services/party.service';
 import { CashbookService } from '../../core/services/cashbook.service';
-import { Party, PartyLedgerSummary } from '../../core/models/models';
+import { Party, PartyLedgerSummary, UnpaidPurchaseSummary } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 @Component({
   selector: 'app-ledger',
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatAutocompleteModule,
+    MatPaginatorModule, MatSnackBarModule,
     StatusBadgeComponent, TranslatePipe
   ],
   template: `
@@ -30,237 +34,279 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
           <h1 class="page-title">{{ 'ledger.title' | t }}</h1>
           <p class="page-subtitle">{{ 'ledger.subtitle' | t }}</p>
         </div>
-        <button
-          class="btn btn-primary desktop-pay"
-          type="button"
-          (click)="openPayForm()"
-          id="btn-ledger-pay"
-          [disabled]="!selectedPartyId">
-          <mat-icon>payments</mat-icon> {{ 'ledger.recordPayment' | t }}
-        </button>
       </header>
 
-      <!-- Party picker -->
-      <section class="picker card">
-        <div class="party-search" *ngIf="parties.length > 8">
-          <mat-icon>search</mat-icon>
-          <input
-            type="search"
-            [placeholder]="'action.search' | t"
-            [value]="partyQuery"
-            (input)="onPartyQuery($event)"
-            id="ledger-party-search"
-            autocomplete="off" />
-        </div>
-        <mat-form-field appearance="outline" class="party-select">
+      <section class="toolbar card">
+        <mat-form-field appearance="outline" class="party-field">
           <mat-label>{{ 'ledger.selectParty' | t }}</mat-label>
-          <mat-select
-            [value]="selectedPartyId"
-            (selectionChange)="onPartyChange($event.value)"
-            id="ledger-party">
-            <mat-option *ngFor="let p of filteredParties" [value]="p.id">
+          <input
+            matInput
+            type="text"
+            id="ledger-party"
+            [formControl]="partyCtrl"
+            [matAutocomplete]="partyAuto"
+            [placeholder]="'ledger.partyPlaceholder' | t"
+            autocomplete="off" />
+          <mat-icon matSuffix>arrow_drop_down</mat-icon>
+          <mat-autocomplete
+            #partyAuto="matAutocomplete"
+            [displayWith]="displayParty"
+            (optionSelected)="onPartySelected($event.option.value)">
+            <mat-option *ngFor="let p of filteredParties" [value]="p">
               {{ p.name }} · {{ p.type }}
             </mat-option>
-          </mat-select>
+          </mat-autocomplete>
         </mat-form-field>
+
+        <div class="toolbar-actions">
+          <button
+            type="button"
+            class="icon-refresh"
+            (click)="loadLedger()"
+            [disabled]="!selectedPartyId || loading"
+            [attr.aria-label]="'ledger.refresh' | t">
+            <mat-icon [class.spin]="loading">refresh</mat-icon>
+          </button>
+          <button
+            class="btn btn-primary desktop-pay"
+            type="button"
+            (click)="openPayForm()"
+            id="btn-ledger-pay"
+            [disabled]="!selectedPartyId">
+            <mat-icon>payments</mat-icon> {{ 'ledger.recordPayment' | t }}
+          </button>
+        </div>
       </section>
 
       <div *ngIf="!selectedPartyId" class="empty-state card">
         <mat-icon>menu_book</mat-icon>
         <h2>{{ 'ledger.selectParty' | t }}</h2>
-        <p>Choose a party to see outstanding balance, unpaid purchases, and ledger history.</p>
+        <p>{{ 'ledger.emptyHint' | t }}</p>
       </div>
 
       <div *ngIf="selectedPartyId && loading && !summary" class="loading-state card">
         <mat-icon class="spin">autorenew</mat-icon>
-        <span>Loading ledger…</span>
+        <span>{{ 'ledger.loading' | t }}</span>
       </div>
 
       <ng-container *ngIf="summary as s">
-        <!-- Hero outstanding -->
-        <section class="hero card" [class.owe]="s.totalOutstanding > 0" [class.clear]="s.totalOutstanding === 0">
-          <div class="hero-top">
-            <div class="hero-party">
+        <section class="balance-strip card" [class.owe]="s.totalOutstanding > 0" [class.clear]="s.totalOutstanding === 0" [class.credit]="s.totalOutstanding < 0">
+          <div class="balance-main">
+            <div class="balance-party">
               <span class="party-type">{{ s.partyType }}</span>
-              <h2>{{ s.partyName }}</h2>
+              <strong>{{ s.partyName }}</strong>
             </div>
-            <button
-              type="button"
-              class="icon-refresh"
-              (click)="loadLedger()"
-              [disabled]="loading"
-              aria-label="Refresh">
-              <mat-icon [class.spin]="loading">refresh</mat-icon>
-            </button>
+            <div class="balance-amount-wrap">
+              <span class="balance-label">{{ 'ledger.outstanding' | t }}</span>
+              <div class="balance-amount">₹{{ s.totalOutstanding | number:'1.2-2' }}</div>
+              <p class="balance-hint">
+                <ng-container *ngIf="s.totalOutstanding > 0">{{ 'ledger.oweThem' | t }}</ng-container>
+                <ng-container *ngIf="s.totalOutstanding < 0">{{ 'ledger.theyOwe' | t }}</ng-container>
+                <ng-container *ngIf="s.totalOutstanding === 0">{{ 'ledger.settled' | t }}</ng-container>
+              </p>
+            </div>
           </div>
-          <div class="hero-label">Total outstanding</div>
-          <div class="hero-amount">₹{{ s.totalOutstanding | number:'1.2-2' }}</div>
-          <p class="hero-hint">
-            <ng-container *ngIf="s.totalOutstanding > 0">Positive = we owe them</ng-container>
-            <ng-container *ngIf="s.totalOutstanding < 0">Negative = they owe us</ng-container>
-            <ng-container *ngIf="s.totalOutstanding === 0">Settled — nothing outstanding</ng-container>
-          </p>
-          <div class="hero-meta">
+          <div class="balance-metrics">
             <div>
-              <span>Opening</span>
+              <span>{{ 'ledger.opening' | t }}</span>
               <strong>₹{{ s.openingBalance | number:'1.0-0' }}</strong>
             </div>
             <div>
-              <span>Purchases due</span>
+              <span>{{ 'ledger.purchasesDue' | t }}</span>
               <strong>₹{{ s.purchaseOutstanding | number:'1.0-0' }}</strong>
             </div>
             <div>
-              <span>Unpaid bills</span>
-              <strong>{{ s.unpaidPurchases.length || 0 }}</strong>
+              <span>{{ 'ledger.unpaidBills' | t }}</span>
+              <strong>{{ s.unpaidPurchases.totalElements || 0 }}</strong>
             </div>
           </div>
         </section>
 
-        <!-- Unpaid purchases -->
-        <section class="block" *ngIf="s.unpaidPurchases.length">
-          <div class="block-head">
-            <h3>{{ 'ledger.unpaidPurchases' | t }}</h3>
-            <span class="count">{{ s.unpaidPurchases.length }}</span>
-          </div>
+        <div class="workspace">
+          <section class="panel unpaid-panel">
+            <div class="block-head">
+              <h3>{{ 'ledger.unpaidPurchases' | t }}</h3>
+              <span class="count">{{ s.unpaidPurchases.totalElements }}</span>
+            </div>
 
-          <div class="mobile-list">
-            <article class="mobile-item card" *ngFor="let p of s.unpaidPurchases">
-              <div class="row-top">
-                <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
-                <strong class="due">₹{{ p.outstanding | number:'1.2-2' }}</strong>
-              </div>
-              <div class="row-title">{{ p.commodityVarietyName }}</div>
-              <div class="row-meta">
-                #{{ p.purchaseId }} · {{ p.purchaseDate }}
-                · net ₹{{ p.netPayable | number:'1.0-0' }}
-                · paid ₹{{ p.amountPaid | number:'1.0-0' }}
-              </div>
-              <button
-                type="button"
-                class="btn btn-primary btn-pay"
-                (click)="openPayForm(p.purchaseId, p.outstanding)">
-                <mat-icon>payments</mat-icon>
-                {{ 'action.pay' | t }} ₹{{ p.outstanding | number:'1.0-0' }}
-              </button>
-            </article>
-          </div>
-
-          <div class="card table-only table-scroll">
-            <table mat-table [dataSource]="s.unpaidPurchases" class="full-table">
-              <ng-container matColumnDef="id">
-                <th mat-header-cell *matHeaderCellDef>#</th>
-                <td mat-cell *matCellDef="let p">{{ p.purchaseId }}</td>
-              </ng-container>
-              <ng-container matColumnDef="date">
-                <th mat-header-cell *matHeaderCellDef>Date</th>
-                <td mat-cell *matCellDef="let p">{{ p.purchaseDate }}</td>
-              </ng-container>
-              <ng-container matColumnDef="variety">
-                <th mat-header-cell *matHeaderCellDef>Variety</th>
-                <td mat-cell *matCellDef="let p">{{ p.commodityVarietyName }}</td>
-              </ng-container>
-              <ng-container matColumnDef="net">
-                <th mat-header-cell *matHeaderCellDef>Net Payable</th>
-                <td mat-cell *matCellDef="let p">₹{{ p.netPayable | number:'1.2-2' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="paid">
-                <th mat-header-cell *matHeaderCellDef>Paid</th>
-                <td mat-cell *matCellDef="let p">₹{{ p.amountPaid | number:'1.2-2' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="due">
-                <th mat-header-cell *matHeaderCellDef>Due</th>
-                <td mat-cell *matCellDef="let p" class="text-danger">₹{{ p.outstanding | number:'1.2-2' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let p">
-                  <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="action">
-                <th mat-header-cell *matHeaderCellDef></th>
-                <td mat-cell *matCellDef="let p">
-                  <button class="btn btn-ghost btn-sm" type="button" (click)="openPayForm(p.purchaseId, p.outstanding)">
-                    {{ 'action.pay' | t }}
+            <div class="panel-scroll" *ngIf="s.unpaidPurchases.totalElements; else noUnpaid">
+              <div class="mobile-list">
+                <article class="mobile-item" *ngFor="let p of s.unpaidPurchases.content">
+                  <div class="row-top">
+                    <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
+                    <strong class="due">₹{{ p.outstanding | number:'1.2-2' }}</strong>
+                  </div>
+                  <div class="row-title">{{ p.commodityVarietyName }}</div>
+                  <div class="row-meta">
+                    #{{ p.purchaseId }} · {{ p.purchaseDate | date:'dd MMM yyyy' }}
+                    · net ₹{{ p.netPayable | number:'1.0-0' }}
+                    · {{ 'ledger.paid' | t }} ₹{{ p.amountPaid | number:'1.0-0' }}
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-pay"
+                    (click)="openPayForm(p.purchaseId, p.outstanding)">
+                    <mat-icon>payments</mat-icon>
+                    {{ 'action.pay' | t }} ₹{{ p.outstanding | number:'1.0-0' }}
                   </button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="unpaidColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: unpaidColumns;"></tr>
-            </table>
-          </div>
-        </section>
+                </article>
+              </div>
 
-        <!-- Ledger entries -->
-        <section class="block">
-          <div class="block-head">
-            <h3>{{ 'ledger.entries' | t }}</h3>
-            <span class="count">{{ s.entries.length || 0 }}</span>
-          </div>
-
-          <div *ngIf="loading" class="loading-state card compact">
-            <mat-icon class="spin">autorenew</mat-icon>
-            <span>Refreshing…</span>
-          </div>
-
-          <ng-container *ngIf="!loading">
-            <div class="mobile-list" *ngIf="s.entries.length; else emptyEntries">
-              <article class="mobile-item card entry" *ngFor="let e of s.entries">
-                <div class="row-top">
-                  <app-status-badge [kind]="e.cashBookType"></app-status-badge>
-                  <strong [class.text-danger]="e.cashBookType === 'PAYMENT'"
-                          [class.text-success]="e.cashBookType === 'RECEIPT'">
-                    ₹{{ e.amountPaid | number:'1.2-2' }}
-                  </strong>
-                </div>
-                <div class="row-title">{{ e.narration || (e.cashBookType === 'PAYMENT' ? 'Payment' : 'Entry') }}</div>
-                <div class="row-meta">
-                  {{ e.entryDate }}
-                  <span *ngIf="e.commodityVarietyName"> · {{ e.commodityVarietyName }}</span>
-                  · bal ₹{{ e.outstandingBalanceAfter | number:'1.0-0' }}
-                </div>
-              </article>
+              <div class="table-wrap table-only">
+                <table mat-table [dataSource]="s.unpaidPurchases.content" class="full-table">
+                  <ng-container matColumnDef="id">
+                    <th mat-header-cell *matHeaderCellDef>#</th>
+                    <td mat-cell *matCellDef="let p">{{ p.purchaseId }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="date">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'purchase.sort.date' | t }}</th>
+                    <td mat-cell *matCellDef="let p">{{ p.purchaseDate | date:'dd MMM yyyy' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="variety">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.variety' | t }}</th>
+                    <td mat-cell *matCellDef="let p">
+                      <div class="cell-strong">{{ p.commodityVarietyName }}</div>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="net">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.netPayable' | t }}</th>
+                    <td mat-cell *matCellDef="let p">₹{{ p.netPayable | number:'1.2-2' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="paid">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.paid' | t }}</th>
+                    <td mat-cell *matCellDef="let p">₹{{ p.amountPaid | number:'1.2-2' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="due">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.due' | t }}</th>
+                    <td mat-cell *matCellDef="let p" class="text-danger">₹{{ p.outstanding | number:'1.2-2' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.status' | t }}</th>
+                    <td mat-cell *matCellDef="let p">
+                      <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="action">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let p">
+                      <button class="btn btn-ghost btn-sm" type="button" (click)="openPayForm(p.purchaseId, p.outstanding)">
+                        {{ 'action.pay' | t }}
+                      </button>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="unpaidColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: unpaidColumns;"></tr>
+                </table>
+              </div>
             </div>
-            <ng-template #emptyEntries>
-              <div class="empty-inline card">
-                <mat-icon>receipt_long</mat-icon>
-                <p>No ledger postings yet for this party.</p>
+            <ng-template #noUnpaid>
+              <div class="empty-inline">
+                <mat-icon>check_circle</mat-icon>
+                <p>{{ 'ledger.noUnpaid' | t }}</p>
               </div>
             </ng-template>
 
-            <div class="card table-only table-scroll" *ngIf="s.entries.length">
-              <table mat-table [dataSource]="s.entries" class="full-table">
-                <ng-container matColumnDef="date">
-                  <th mat-header-cell *matHeaderCellDef>Date</th>
-                  <td mat-cell *matCellDef="let e">{{ e.entryDate }}</td>
-                </ng-container>
-                <ng-container matColumnDef="type">
-                  <th mat-header-cell *matHeaderCellDef>Type</th>
-                  <td mat-cell *matCellDef="let e">
-                    <app-status-badge [kind]="e.cashBookType"></app-status-badge>
-                  </td>
-                </ng-container>
-                <ng-container matColumnDef="narration">
-                  <th mat-header-cell *matHeaderCellDef>Narration</th>
-                  <td mat-cell *matCellDef="let e">{{ e.narration }}</td>
-                </ng-container>
-                <ng-container matColumnDef="amount">
-                  <th mat-header-cell *matHeaderCellDef>Amount</th>
-                  <td mat-cell *matCellDef="let e">₹{{ e.amountPaid | number:'1.2-2' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="outstanding">
-                  <th mat-header-cell *matHeaderCellDef>Outstanding After</th>
-                  <td mat-cell *matCellDef="let e">₹{{ e.outstandingBalanceAfter | number:'1.2-2' }}</td>
-                </ng-container>
-                <tr mat-header-row *matHeaderRowDef="entryColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: entryColumns;"></tr>
-              </table>
+            <mat-paginator
+              *ngIf="s.unpaidPurchases.totalElements"
+              class="panel-pager"
+              [length]="s.unpaidPurchases.totalElements"
+              [pageIndex]="unpaidPageIndex"
+              [pageSize]="unpaidPageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [showFirstLastButtons]="true"
+              (page)="onUnpaidPage($event)">
+            </mat-paginator>
+          </section>
+
+          <section class="panel entries-panel">
+            <div class="block-head">
+              <h3>{{ 'ledger.entries' | t }}</h3>
+              <span class="count">{{ s.entries.totalElements || 0 }}</span>
             </div>
-          </ng-container>
-        </section>
+
+            <div *ngIf="loading" class="loading-state compact">
+              <mat-icon class="spin">autorenew</mat-icon>
+              <span>{{ 'ledger.refreshing' | t }}</span>
+            </div>
+
+            <ng-container *ngIf="!loading">
+              <div class="panel-scroll" *ngIf="s.entries.totalElements; else emptyEntries">
+                <div class="mobile-list">
+                  <article class="mobile-item entry" *ngFor="let e of s.entries.content">
+                    <div class="row-top">
+                      <app-status-badge [kind]="e.cashBookType"></app-status-badge>
+                      <strong [class.text-danger]="e.cashBookType === 'PAYMENT'"
+                              [class.text-success]="e.cashBookType === 'RECEIPT'">
+                        ₹{{ e.amountPaid | number:'1.2-2' }}
+                      </strong>
+                    </div>
+                    <div class="row-title">{{ e.narration || (e.cashBookType === 'PAYMENT' ? ('ledger.payment' | t) : ('ledger.entry' | t)) }}</div>
+                    <div class="row-meta">
+                      {{ e.entryDate | date:'dd MMM yyyy' }}
+                      <span *ngIf="e.commodityVarietyName"> · {{ e.commodityVarietyName }}</span>
+                      · bal ₹{{ e.outstandingBalanceAfter | number:'1.0-0' }}
+                    </div>
+                  </article>
+                </div>
+
+                <div class="table-wrap table-only">
+                  <table mat-table [dataSource]="s.entries.content" class="full-table">
+                    <ng-container matColumnDef="date">
+                      <th mat-header-cell *matHeaderCellDef>{{ 'purchase.sort.date' | t }}</th>
+                      <td mat-cell *matCellDef="let e">{{ e.entryDate | date:'dd MMM yyyy' }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="type">
+                      <th mat-header-cell *matHeaderCellDef>{{ 'ledger.status' | t }}</th>
+                      <td mat-cell *matCellDef="let e">
+                        <app-status-badge [kind]="e.cashBookType"></app-status-badge>
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="narration">
+                      <th mat-header-cell *matHeaderCellDef>{{ 'ledger.narration' | t }}</th>
+                      <td mat-cell *matCellDef="let e">
+                        <div class="cell-strong">{{ e.narration || '—' }}</div>
+                        <div class="cell-meta" *ngIf="e.commodityVarietyName">{{ e.commodityVarietyName }}</div>
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="amount">
+                      <th mat-header-cell *matHeaderCellDef>{{ 'ledger.amountCol' | t }}</th>
+                      <td mat-cell *matCellDef="let e"
+                          [class.text-danger]="e.cashBookType === 'PAYMENT'"
+                          [class.text-success]="e.cashBookType === 'RECEIPT'">
+                        ₹{{ e.amountPaid | number:'1.2-2' }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="outstanding">
+                      <th mat-header-cell *matHeaderCellDef>{{ 'ledger.outstandingAfter' | t }}</th>
+                      <td mat-cell *matCellDef="let e">₹{{ e.outstandingBalanceAfter | number:'1.2-2' }}</td>
+                    </ng-container>
+                    <tr mat-header-row *matHeaderRowDef="entryColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: entryColumns;"></tr>
+                  </table>
+                </div>
+              </div>
+              <ng-template #emptyEntries>
+                <div class="empty-inline">
+                  <mat-icon>receipt_long</mat-icon>
+                  <p>{{ 'ledger.noEntries' | t }}</p>
+                </div>
+              </ng-template>
+
+              <mat-paginator
+                *ngIf="s.entries.totalElements"
+                class="panel-pager"
+                [length]="s.entries.totalElements"
+                [pageIndex]="entryPageIndex"
+                [pageSize]="entryPageSize"
+                [pageSizeOptions]="pageSizeOptions"
+                [showFirstLastButtons]="true"
+                (page)="onEntryPage($event)">
+              </mat-paginator>
+            </ng-container>
+          </section>
+        </div>
       </ng-container>
 
-      <!-- Mobile sticky pay -->
       <div class="mobile-pay-bar" *ngIf="selectedPartyId">
         <button
           type="button"
@@ -272,45 +318,44 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
         </button>
       </div>
 
-      <!-- Pay dialog -->
       <div class="dialog-overlay" *ngIf="showPayForm" (click)="closePayForm()">
         <div class="dialog-panel card panel-sm" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
           <div class="dialog-header">
             <h3>{{ 'ledger.recordPayment' | t }}</h3>
-            <button mat-icon-button type="button" (click)="closePayForm()" aria-label="Close">
+            <button mat-icon-button type="button" (click)="closePayForm()" [attr.aria-label]="'action.close' | t">
               <mat-icon>close</mat-icon>
             </button>
           </div>
           <p class="dialog-context" *ngIf="summary">
-            {{ summary.partyName }} — outstanding
+            {{ summary.partyName }} — {{ 'ledger.outstandingLabel' | t }}
             <strong>₹{{ summary.totalOutstanding | number:'1.2-2' }}</strong>
           </p>
           <form [formGroup]="payForm" (ngSubmit)="savePayment()" class="pay-form">
             <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Date *</mat-label>
+              <mat-label>{{ 'ledger.date' | t }}</mat-label>
               <input matInput type="date" formControlName="entryDate" id="pay-date">
             </mat-form-field>
-            <mat-form-field appearance="outline" class="w-full" *ngIf="summary?.unpaidPurchases?.length">
-              <mat-label>Against Purchase</mat-label>
+            <mat-form-field appearance="outline" class="w-full" *ngIf="payUnpaidOptions.length">
+              <mat-label>{{ 'ledger.againstPurchase' | t }}</mat-label>
               <mat-select formControlName="linkedPurchaseId" id="pay-purchase">
-                <mat-option [value]="null">— General —</mat-option>
-                <mat-option *ngFor="let p of summary!.unpaidPurchases" [value]="p.purchaseId">
-                  #{{ p.purchaseId }} — due ₹{{ p.outstanding | number:'1.2-2' }}
+                <mat-option [value]="null">{{ 'ledger.general' | t }}</mat-option>
+                <mat-option *ngFor="let p of payUnpaidOptions" [value]="p.purchaseId">
+                  #{{ p.purchaseId }} — {{ 'ledger.due' | t }} ₹{{ p.outstanding | number:'1.2-2' }}
                 </mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Amount (₹) *</mat-label>
+              <mat-label>{{ 'ledger.amount' | t }}</mat-label>
               <input matInput type="number" formControlName="amount" id="pay-amount" step="0.01" inputmode="decimal">
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Remarks</mat-label>
+              <mat-label>{{ 'ledger.remarks' | t }}</mat-label>
               <textarea matInput formControlName="remarks" rows="2"></textarea>
             </mat-form-field>
             <div class="dialog-actions">
-              <button type="button" class="btn btn-ghost" (click)="closePayForm()">Cancel</button>
+              <button type="button" class="btn btn-ghost" (click)="closePayForm()">{{ 'action.cancel' | t }}</button>
               <button type="submit" class="btn btn-primary" [disabled]="payForm.invalid || saving">
-                {{ saving ? 'Posting…' : 'Post Payment' }}
+                {{ saving ? ('ledger.posting' | t) : ('ledger.postPayment' | t) }}
               </button>
             </div>
           </form>
@@ -320,90 +365,33 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   `,
   styles: [`
     .ledger-page {
-      max-width: 1100px;
+      width: 100%;
+      max-width: none;
       padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
 
     .desktop-pay { display: none; }
+    .table-only { display: none; }
+    .mobile-only { display: flex; }
 
-    .picker {
-      padding: 12px 14px 4px;
-      margin-bottom: 14px;
+    .toolbar {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px 4px;
+      margin-bottom: 12px;
     }
-
-    .party-search {
+    .party-field {
+      flex: 1 1 260px;
+      min-width: 0;
+    }
+    .toolbar-actions {
       display: flex;
       align-items: center;
       gap: 8px;
-      min-height: 44px;
-      padding: 0 12px;
-      border: 1px solid var(--color-border);
-      border-radius: 10px;
-      background: var(--color-surface-raised);
-    }
-    .party-search mat-icon {
-      color: var(--color-text-muted);
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-    .party-search input {
-      border: none;
-      outline: none;
-      background: transparent;
-      width: 100%;
-      font: inherit;
-      font-size: 16px;
-      color: var(--color-text-primary);
-    }
-
-    .party-select { width: 100%; }
-
-    .hero {
-      padding: 16px;
-      margin-bottom: 16px;
-      background:
-        linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-surface));
-      border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
-    }
-    .hero.owe {
-      background:
-        linear-gradient(145deg, color-mix(in srgb, var(--color-warning) 12%, var(--color-surface)), var(--color-surface));
-      border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
-    }
-    .hero.clear {
-      background:
-        linear-gradient(145deg, color-mix(in srgb, var(--color-success) 10%, var(--color-surface)), var(--color-surface));
-      border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
-    }
-
-    .hero-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .party-type {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--color-text-muted);
-      margin-bottom: 4px;
-    }
-    .hero-party h2 {
-      margin: 0;
-      font-family: var(--font-heading);
-      font-size: clamp(1.15rem, 4vw, 1.35rem);
-      font-weight: 750;
-      letter-spacing: -0.02em;
-      color: var(--color-text-primary);
-      line-height: 1.2;
+      padding-top: 4px;
+      margin-left: auto;
     }
     .icon-refresh {
       width: 40px;
@@ -419,70 +407,135 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
     }
     .icon-refresh:disabled { opacity: 0.55; cursor: default; }
 
-    .hero-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--color-text-muted);
+    .balance-strip {
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      border-left: 3px solid var(--color-border);
+      background: var(--color-surface);
     }
-    .hero-amount {
-      font-family: var(--font-heading);
-      font-size: clamp(1.75rem, 7vw, 2.25rem);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--color-text-primary);
-      line-height: 1.1;
-      margin: 4px 0 6px;
+    .balance-strip.owe { border-left-color: var(--color-warning); }
+    .balance-strip.clear { border-left-color: var(--color-success); }
+    .balance-strip.credit { border-left-color: var(--color-accent); }
+
+    .balance-main {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px 24px;
+      margin-bottom: 12px;
     }
-    .hero-hint {
-      margin: 0 0 14px;
-      font-size: 12px;
-      color: var(--color-text-secondary);
-    }
-    .hero-meta {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      padding-top: 12px;
-      border-top: 1px solid var(--color-border-subtle);
-    }
-    .hero-meta div {
+    .balance-party {
       display: flex;
       flex-direction: column;
       gap: 2px;
       min-width: 0;
     }
-    .hero-meta span {
+    .party-type {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+    .balance-party strong {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 750;
+      color: var(--color-text-primary);
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .balance-amount-wrap { text-align: right; margin-left: auto; }
+    .balance-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+    .balance-amount {
+      font-family: var(--font-heading);
+      font-size: clamp(1.45rem, 5vw, 1.85rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--color-text-primary);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .balance-hint {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+    .balance-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .balance-metrics div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .balance-metrics span {
       font-size: 10px;
       font-weight: 650;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--color-text-muted);
     }
-    .hero-meta strong {
+    .balance-metrics strong {
       font-size: 13px;
       font-weight: 700;
       color: var(--color-text-primary);
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .block { margin-bottom: 18px; }
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px 8px;
+    }
+    .panel-scroll {
+      max-height: min(42vh, 420px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      min-height: 0;
+    }
+    .panel-pager {
+      margin-top: 4px;
+      border-top: 1px solid var(--color-border-subtle);
+    }
     .block-head {
       display: flex;
       align-items: center;
       gap: 8px;
       margin-bottom: 10px;
+      flex-shrink: 0;
     }
     .block-head h3 {
       margin: 0;
-      font-size: 0.8rem;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: var(--color-text-secondary);
+      color: var(--color-text-muted);
     }
     .count {
       min-width: 22px;
@@ -501,13 +554,16 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
     .mobile-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
     .mobile-item {
-      padding: 14px;
+      padding: 12px;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 10px;
+      background: var(--color-surface-raised);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
     .row-top {
       display: flex;
@@ -516,7 +572,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       gap: 10px;
     }
     .row-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       color: var(--color-text-primary);
       line-height: 1.3;
@@ -527,19 +583,27 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       color: var(--color-text-muted);
       line-height: 1.4;
     }
-    .due { color: var(--color-danger); font-size: 1.05rem; }
+    .due { color: var(--color-danger); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
     .text-danger { color: var(--color-danger); font-weight: 650; }
     .text-success { color: var(--color-success); font-weight: 650; }
 
     .btn-pay {
-      margin-top: 8px;
+      margin-top: 6px;
       width: 100%;
-      min-height: 44px;
+      min-height: 42px;
     }
+    .btn-sm { padding: 4px 12px; font-size: 12px; min-height: 34px; }
 
-    .table-only { display: none; }
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 10px;
+      background: var(--color-surface);
+    }
     .full-table { width: 100%; }
-    .btn-sm { padding: 4px 12px; font-size: 12px; }
+    .cell-strong { font-weight: 650; color: var(--color-text-primary); }
+    .cell-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
 
     .empty-state, .loading-state, .empty-inline {
       display: flex;
@@ -547,7 +611,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 40px 20px;
+      padding: 36px 18px;
       color: var(--color-text-muted);
       text-align: center;
     }
@@ -559,19 +623,30 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
     }
     .empty-state p, .empty-inline p {
       margin: 0;
-      max-width: 32ch;
+      max-width: 36ch;
       font-size: 13px;
       line-height: 1.45;
     }
     .empty-state mat-icon, .empty-inline mat-icon {
-      font-size: 40px;
-      width: 40px;
-      height: 40px;
+      font-size: 36px;
+      width: 36px;
+      height: 36px;
       color: var(--color-border);
     }
-    .loading-state.compact { padding: 24px; }
+    .loading-state.compact { padding: 20px; }
+    .empty-inline {
+      border: 1px dashed var(--color-border-subtle);
+      border-radius: 10px;
+      background: var(--color-surface-raised);
+    }
 
     .pay-form { display: flex; flex-direction: column; gap: 2px; }
+    .dialog-context {
+      margin: 0 0 8px;
+      padding: 0 4px;
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
 
     .mobile-pay-bar {
       position: fixed;
@@ -595,21 +670,65 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       .ledger-page { padding-bottom: 24px; }
       .desktop-pay { display: inline-flex; }
       .mobile-pay-bar { display: none; }
-      .mobile-list { display: none; }
-      .table-only { display: block; margin-top: 0; }
-      .hero-meta strong { font-size: 14px; }
+      .mobile-list, .mobile-only { display: none !important; }
+      .table-only { display: block; }
+
+      .toolbar {
+        align-items: center;
+        padding: 10px 14px 2px;
+      }
+      .party-field { max-width: 420px; }
+      .toolbar-actions { padding-top: 0; }
+
+      .balance-strip {
+        display: flex;
+        align-items: stretch;
+        gap: 28px;
+        padding: 14px 18px;
+      }
+      .balance-main {
+        flex: 1 1 auto;
+        margin-bottom: 0;
+        align-items: flex-end;
+      }
+      .balance-metrics {
+        flex: 0 0 320px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border-top: none;
+        border-left: 1px solid var(--color-border-subtle);
+        padding: 0 0 0 20px;
+        align-content: center;
+      }
+      .balance-metrics strong { font-size: 14px; }
+
+      .workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .panel {
+        padding: 14px 16px 8px;
+      }
+      .panel-scroll {
+        max-height: min(48vh, 480px);
+      }
+      .table-wrap {
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 10px;
+      }
     }
 
     @media (max-width: 420px) {
-      .hero-meta { grid-template-columns: 1fr 1fr; }
-      .hero-meta div:last-child { grid-column: 1 / -1; }
+      .balance-metrics { grid-template-columns: 1fr 1fr; }
+      .balance-metrics div:last-child { grid-column: 1 / -1; }
+      .balance-amount-wrap { text-align: left; margin-left: 0; width: 100%; }
     }
   `]
 })
 export class LedgerComponent implements OnInit {
   parties: Party[] = [];
   filteredParties: Party[] = [];
-  partyQuery = '';
+  partyCtrl = new FormControl<string | Party | null>('');
   selectedPartyId: number | null = null;
   summary: PartyLedgerSummary | null = null;
   loading = false;
@@ -619,6 +738,13 @@ export class LedgerComponent implements OnInit {
   unpaidColumns = ['id', 'date', 'variety', 'net', 'paid', 'due', 'status', 'action'];
   entryColumns = ['date', 'type', 'narration', 'amount', 'outstanding'];
 
+  pageSizeOptions = [5, 10, 25, 50];
+  unpaidPageIndex = 0;
+  unpaidPageSize = 10;
+  entryPageIndex = 0;
+  entryPageSize = 10;
+  payUnpaidOptions: UnpaidPurchaseSummary[] = [];
+
   payForm!: FormGroup;
 
   constructor(
@@ -626,7 +752,8 @@ export class LedgerComponent implements OnInit {
     private partyService: PartyService,
     private cashbookService: CashbookService,
     private fb: FormBuilder,
-    private snack: MatSnackBar
+    private snack: MatSnackBar,
+    private i18n: I18nService
   ) {}
 
   ngOnInit() {
@@ -636,47 +763,80 @@ export class LedgerComponent implements OnInit {
       amount: [null, [Validators.required, Validators.min(0.01)]],
       remarks: ['']
     });
+
     this.partyService.getAll().subscribe({
       next: res => {
         this.parties = res.data || [];
         this.filteredParties = [...this.parties];
       }
     });
+
+    this.partyCtrl.valueChanges.subscribe(value => {
+      if (value && typeof value === 'object' && 'id' in value) {
+        this.filteredParties = [...this.parties];
+        return;
+      }
+      const q = (typeof value === 'string' ? value : '').trim().toLowerCase();
+      this.filteredParties = !q
+        ? [...this.parties]
+        : this.parties.filter(p =>
+            p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
+          );
+      if (typeof value === 'string' && this.selectedPartyId != null) {
+        const selected = this.parties.find(p => p.id === this.selectedPartyId);
+        if (!selected || selected.name.toLowerCase() !== q) {
+          this.selectedPartyId = null;
+          this.summary = null;
+        }
+      }
+    });
   }
 
-  onPartyQuery(event: Event) {
-    const value = (event.target as HTMLInputElement).value || '';
-    this.partyQuery = value;
-    const q = value.trim().toLowerCase();
-    this.filteredParties = !q
-      ? [...this.parties]
-      : this.parties.filter(p =>
-          p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
-        );
+  displayParty = (value: Party | string | null): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return `${value.name} · ${value.type}`;
+  };
+
+  onPartySelected(party: Party) {
+    this.selectedPartyId = party.id;
+    this.loadLedger(true);
   }
 
-  onPartyChange(partyId: number | null) {
-    this.selectedPartyId = partyId;
-    if (!partyId) {
-      this.summary = null;
-      return;
-    }
-    this.loadLedger();
-  }
-
-  loadLedger() {
+  loadLedger(resetPages = false) {
     if (!this.selectedPartyId) return;
+    if (resetPages) {
+      this.unpaidPageIndex = 0;
+      this.entryPageIndex = 0;
+    }
     this.loading = true;
-    this.ledgerService.getPartyLedger(this.selectedPartyId).subscribe({
+    this.ledgerService.getPartyLedger(this.selectedPartyId, {
+      unpaidPage: this.unpaidPageIndex,
+      unpaidSize: this.unpaidPageSize,
+      entryPage: this.entryPageIndex,
+      entrySize: this.entryPageSize
+    }).subscribe({
       next: res => {
         this.summary = res.data;
         this.loading = false;
       },
       error: err => {
         this.loading = false;
-        this.snack.open(err?.error?.message || 'Failed to load ledger', 'OK', { duration: 4000 });
+        this.snack.open(err?.error?.message || this.i18n.t('ledger.loadFailed'), 'OK', { duration: 4000 });
       }
     });
+  }
+
+  onUnpaidPage(event: PageEvent) {
+    this.unpaidPageIndex = event.pageIndex;
+    this.unpaidPageSize = event.pageSize;
+    this.loadLedger();
+  }
+
+  onEntryPage(event: PageEvent) {
+    this.entryPageIndex = event.pageIndex;
+    this.entryPageSize = event.pageSize;
+    this.loadLedger();
   }
 
   openPayForm(purchaseId?: number, amount?: number) {
@@ -687,6 +847,19 @@ export class LedgerComponent implements OnInit {
       remarks: ''
     });
     this.showPayForm = true;
+    this.payUnpaidOptions = this.summary?.unpaidPurchases?.content ?? [];
+    if (this.selectedPartyId) {
+      this.ledgerService.getPartyLedger(this.selectedPartyId, {
+        unpaidPage: 0,
+        unpaidSize: 100,
+        entryPage: this.entryPageIndex,
+        entrySize: this.entryPageSize
+      }).subscribe({
+        next: res => {
+          this.payUnpaidOptions = res.data.unpaidPurchases.content;
+        }
+      });
+    }
   }
 
   closePayForm() {
@@ -708,12 +881,12 @@ export class LedgerComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.showPayForm = false;
-        this.snack.open('Payment posted to cash book & ledger', 'OK', { duration: 3000 });
-        this.loadLedger();
+        this.snack.open(this.i18n.t('ledger.paymentPosted'), 'OK', { duration: 3000 });
+        this.loadLedger(true);
       },
       error: err => {
         this.saving = false;
-        this.snack.open(err?.error?.message || 'Failed to post payment', 'OK', { duration: 5000 });
+        this.snack.open(err?.error?.message || this.i18n.t('ledger.postFailed'), 'OK', { duration: 5000 });
       }
     });
   }

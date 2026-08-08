@@ -274,6 +274,14 @@ export interface UnpaidPurchaseSummary {
   paymentStatus: string;
 }
 
+export interface PageResult<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface PartyLedgerSummary {
   partyId: number;
   partyName: string;
@@ -281,8 +289,8 @@ export interface PartyLedgerSummary {
   openingBalance: number;
   purchaseOutstanding: number;
   totalOutstanding: number;
-  unpaidPurchases: UnpaidPurchaseSummary[];
-  entries: LedgerEntry[];
+  unpaidPurchases: PageResult<UnpaidPurchaseSummary>;
+  entries: PageResult<LedgerEntry>;
 }
 
 export type BardanaType = 'RECEIVED' | 'ISSUED' | 'RETURNED' | 'ADJUSTMENT';

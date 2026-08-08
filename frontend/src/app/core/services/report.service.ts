@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import {
   ApiResponse,
   BardanaBalance,
@@ -10,12 +10,16 @@ import {
   Stock
 } from '../models/models';
 import { environment } from '../../../environments/environment';
+import { LedgerService } from './ledger.service';
 
 @Injectable({ providedIn: 'root' })
 export class ReportService {
   private base = `${environment.apiUrl}/reports`;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private ledgerService: LedgerService
+  ) {}
 
   cashFlow(from: string, to: string): Observable<ApiResponse<CashFlowReport>> {
     const params = new HttpParams().set('from', from).set('to', to);
@@ -38,6 +42,11 @@ export class ReportService {
   }
 
   ledger(partyId: number): Observable<ApiResponse<PartyLedgerSummary>> {
-    return this.http.get<ApiResponse<PartyLedgerSummary>>(`${this.base}/ledger/${partyId}`);
+    return this.http.get<ApiResponse<PartyLedgerSummary>>(`${this.base}/ledger/${partyId}`).pipe(
+      map(res => ({
+        ...res,
+        data: res.data ? this.ledgerService.normalizeSummary(res.data) : res.data
+      }))
+    );
   }
 }

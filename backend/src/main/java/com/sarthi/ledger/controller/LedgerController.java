@@ -26,8 +26,14 @@ public class LedgerController {
     }
 
     @GetMapping("/parties/{partyId}")
-    public ResponseEntity<ApiResponse<PartyLedgerSummaryResponse>> getPartyLedger(@PathVariable Long partyId) {
-        return ResponseEntity.ok(ApiResponse.ok(ledgerService.getPartyLedger(partyId)));
+    public ResponseEntity<ApiResponse<PartyLedgerSummaryResponse>> getPartyLedger(
+            @PathVariable Long partyId,
+            @RequestParam(required = false) Integer unpaidPage,
+            @RequestParam(required = false) Integer unpaidSize,
+            @RequestParam(required = false) Integer entryPage,
+            @RequestParam(required = false) Integer entrySize) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                ledgerService.getPartyLedger(partyId, unpaidPage, unpaidSize, entryPage, entrySize)));
     }
 
     @GetMapping("/parties/{partyId}/outstanding")

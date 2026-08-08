@@ -1,7 +1,8 @@
 package com.sarthi.ledger.dto;
 
+import com.sarthi.common.response.PageResponse;
+
 import java.math.BigDecimal;
-import java.util.List;
 
 public record PartyLedgerSummaryResponse(
         Long partyId,
@@ -10,8 +11,8 @@ public record PartyLedgerSummaryResponse(
         BigDecimal openingBalance,
         BigDecimal purchaseOutstanding,
         BigDecimal totalOutstanding,
-        List<UnpaidPurchaseSummary> unpaidPurchases,
-        List<LedgerEntryResponse> entries
+        PageResponse<UnpaidPurchaseSummary> unpaidPurchases,
+        PageResponse<LedgerEntryResponse> entries
 ) {
     public record UnpaidPurchaseSummary(
             Long purchaseId,

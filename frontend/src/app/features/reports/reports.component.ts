@@ -342,13 +342,13 @@ interface TabDef {
             </div>
             <div>
               <span>Entries</span>
-              <strong>{{ ledger.entries.length }}</strong>
+              <strong>{{ ledger.entries.totalElements }}</strong>
             </div>
           </div>
         </section>
 
-        <div class="mobile-list" *ngIf="ledger.entries.length; else emptyLedger">
-          <article class="mobile-item card" *ngFor="let e of ledger.entries" [attr.data-type]="e.cashBookType">
+        <div class="mobile-list" *ngIf="ledger.entries.content.length; else emptyLedger">
+          <article class="mobile-item card" *ngFor="let e of ledger.entries.content" [attr.data-type]="e.cashBookType">
             <div class="row-top">
               <app-status-badge [kind]="e.cashBookType"></app-status-badge>
               <strong>₹{{ e.amountPaid | number:'1.0-0' }}</strong>
@@ -360,7 +360,7 @@ interface TabDef {
         <ng-template #emptyLedger><div class="empty card">{{ 'reports.empty' | t }}</div></ng-template>
 
         <div class="card table-only table-scroll">
-          <table mat-table [dataSource]="ledger.entries" class="full-table">
+          <table mat-table [dataSource]="ledger.entries.content" class="full-table">
             <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let e">{{ e.entryDate }}</td></ng-container>
             <ng-container matColumnDef="type"><th mat-header-cell *matHeaderCellDef>Type</th><td mat-cell *matCellDef="let e"><app-status-badge [kind]="e.cashBookType"></app-status-badge></td></ng-container>
             <ng-container matColumnDef="narration"><th mat-header-cell *matHeaderCellDef>Narration</th><td mat-cell *matCellDef="let e">{{ e.narration }}</td></ng-container>
@@ -895,7 +895,7 @@ export class ReportsComponent implements OnInit {
     } else if (this.tab === 'ledger' && this.ledger) {
       filename = `ledger-${this.ledger.partyName}.csv`;
       rows = [['Date', 'Type', 'Narration', 'Amount', 'Outstanding']];
-      for (const e of this.ledger.entries) {
+      for (const e of this.ledger.entries.content) {
         rows.push([e.entryDate, e.cashBookType, e.narration || '', String(e.amountPaid), String(e.outstandingBalanceAfter)]);
       }
     } else {
