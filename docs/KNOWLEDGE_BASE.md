@@ -44,8 +44,8 @@ See also [DEPLOY.md](../DEPLOY.md).
 - **Commodity / variety** — configurable commission, gaushala, bardana mode, bag weight
 - **Purchase** — draft → confirm (stock in + bardana); payments via cash book / ledger
 - **Sale** — draft → confirm (stock out); receipts similarly
-- **Cash book** — daily receipts/payments; posts to party ledger; opening balance / finalize day
-- **Ledger** — auto-posted party balances
+- **Cash book** — daily receipts/payments; posts to party ledger; opening balance / finalize day; **NEW:** paginated all-entries view with date filters
+- **Ledger** — auto-posted party balances; paginated unpaid purchases and entries
 - **Bardana** — bag exchange / cost-included tracking
 - **Stock** — per variety weight + bags
 - **Users** — single company install; roles `OWNER` | `STAFF`
@@ -70,9 +70,9 @@ See also [DEPLOY.md](../DEPLOY.md).
 ```
 backend/src/main/java/com/sarthi/
   audit/          # AuditLog, AuditService (best-effort, never breaks money ops)
-  cashbook/
+  cashbook/       # Day view + paginated entries (GET /cashbook/entries?page=0&size=20&fromDate=&toDate=)
   config/security/
-  ledger/
+  ledger/         # Paginated party ledger + unpaid purchases
   master/         # Party, Commodity, AppUser, UserManagement, MeController
   purchase/
   report/
@@ -84,6 +84,7 @@ backend/src/main/java/com/sarthi/
 - Context path: `/api`
 - Migrations: `backend/src/main/resources/db/migration/` (`V1`…`V4` prefs + audit actions)
 - `ddl-auto: validate` — schema only via Flyway
+- **Pagination:** Cash book and ledger support paginated queries with `page`, `size` params (max 100/page)
 
 ---
 
@@ -92,14 +93,15 @@ backend/src/main/java/com/sarthi/
 ```
 frontend/src/app/
   core/           # auth, i18n, theme, services, models, config.json loader
-  features/       # dashboard, purchase, sale, cashbook, ledger, bardana,
-                  # masters, reports, settings, auth/login
+  features/       # dashboard, purchase, sale, cashbook (day + all-entries views),
+                  # ledger (paginated), bardana, masters, reports, settings, auth/login
   layout/shell/   # nav, theme/lang chips, user menu
 ```
 
 - Prod API URL from `/config.json` (Vercel build writes `API_URL`)
 - Shared mobile UX: cards on phone, tables on desktop (~900px), sticky FABs / bottom bars, bottom-sheet dialogs (`styles.scss`)
 - Settings (`/settings`): Preferences | Users (OWNER) | Audit (OWNER)
+- **Cash book** now supports Day View (existing) and All Entries View (paginated across dates)
 
 ---
 
