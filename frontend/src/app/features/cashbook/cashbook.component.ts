@@ -238,6 +238,7 @@ type ViewMode = 'day' | 'all';
           </div>
         </ng-container>
       </ng-container>
+      </ng-container>
 
       <!-- All Entries View -->
       <ng-container *ngIf="viewMode === 'all'">
