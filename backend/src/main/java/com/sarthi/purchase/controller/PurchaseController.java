@@ -48,6 +48,14 @@ public class PurchaseController {
                 .body(ApiResponse.ok("Purchase transaction recorded successfully", PurchaseResponse.from(p)));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<PurchaseResponse>> update(
+            @PathVariable Long id,
+            @Valid @RequestBody PurchaseRequest request) {
+        Purchase p = purchaseService.updatePurchase(id, request);
+        return ResponseEntity.ok(ApiResponse.ok("Purchase draft updated", PurchaseResponse.from(p)));
+    }
+
     @PostMapping("/{id}/confirm")
     public ResponseEntity<ApiResponse<PurchaseResponse>> confirm(@PathVariable Long id) {
         Purchase p = purchaseService.confirmPurchase(id);

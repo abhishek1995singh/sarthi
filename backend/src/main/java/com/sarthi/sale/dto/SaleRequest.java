@@ -33,6 +33,8 @@ public record SaleRequest(
 
         Long transporterId,
 
+        String transportNumber,
+
         @DecimalMin(value = "0.00", message = "Transport charge cannot be negative")
         BigDecimal transportCharge,
 

@@ -131,6 +131,7 @@ public class SaleService {
         sale.setQuantityQuintals(qty);
         sale.setBags(bags);
         sale.setTransporter(transporter);
+        sale.setTransportNumber(normalizeTransportNumber(request.transportNumber()));
         sale.setTransportCharge(nz(request.transportCharge()));
         sale.setRemarks(request.remarks());
 
@@ -259,11 +260,20 @@ public class SaleService {
     private java.util.Map<String, Object> saleSnapshot(Sale s) {
         return AuditService.mapOf(
                 "buyer", s.getBuyer() != null ? s.getBuyer().getName() : null,
+                "transportNumber", s.getTransportNumber(),
                 "totalAmount", s.getTotalAmount(),
                 "quantityQuintals", s.getQuantityQuintals(),
                 "confirmed", s.isConfirmed(),
                 "paymentStatus", s.getPaymentStatus() != null ? s.getPaymentStatus().name() : null
         );
+    }
+
+    private String normalizeTransportNumber(String transportNumber) {
+        if (transportNumber == null) {
+            return null;
+        }
+        String trimmed = transportNumber.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private static BigDecimal nz(BigDecimal value) {

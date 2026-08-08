@@ -69,79 +69,27 @@ public class PurchaseService {
         AppUser currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
 
-        Party party = partyRepository.findById(request.partyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Party not found with ID: " + request.partyId()));
-
-        if (party.getType() == Party.PartyType.TRANSPORTER) {
-            throw new BusinessValidationException("Cannot purchase from a Transporter party.");
-        }
-
-        CommodityVariety variety = commodityVarietyRepository.findById(request.commodityVarietyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Commodity variety not found with ID: " + request.commodityVarietyId()));
-
-        CommoditySettings settings = commoditySettingsRepository.findByCommodityVarietyId(variety.getId())
-                .orElseThrow(() -> new BusinessValidationException(
-                        "Commodity settings are not configured for variety '" + variety.getName() + "'. Please configure settings first."
-                ));
-
-        BigDecimal weight = request.weightQuintals();
-        BigDecimal rate = request.ratePerQuintal();
-
-        // Calculations
-        BigDecimal grossAmount = weight.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal gaushalaRate = settings.getGausharaRate();
-        BigDecimal gaushalaAmount = weight.multiply(gaushalaRate).setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal commissionRate = settings.getCommissionRate();
-        BigDecimal commissionAmount = grossAmount.multiply(commissionRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-
-        BigDecimal cashDiscountPct = request.cashDiscountPct() != null ? request.cashDiscountPct() : BigDecimal.ZERO;
-        if (cashDiscountPct.compareTo(BigDecimal.ZERO) > 0) {
-            List<BigDecimal> allowedDiscounts = settings.getAllowedCashDiscountList();
-            boolean isAllowed = allowedDiscounts.stream()
-                    .anyMatch(d -> d.compareTo(cashDiscountPct) == 0);
-            if (!isAllowed) {
-                throw new BusinessValidationException("Cash discount percentage " + cashDiscountPct + "% is not allowed. Allowed values: " + settings.getAllowedCashDiscounts());
-            }
-        }
-        BigDecimal cashDiscountAmount = grossAmount.multiply(cashDiscountPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-
-        // netPayable = grossAmount - gaushalaAmount - commissionAmount - cashDiscountAmount
-        BigDecimal netPayable = grossAmount.subtract(gaushalaAmount).subtract(commissionAmount).subtract(cashDiscountAmount)
-                .setScale(2, RoundingMode.HALF_UP);
-
         Purchase purchase = new Purchase();
-        purchase.setPurchaseDate(request.purchaseDate());
-        purchase.setParty(party);
-        purchase.setCommodityVariety(variety);
-        purchase.setWeightQuintals(weight);
-
-        // Standard bag weight to auto-calculate bags if count not provided
-        int bags = request.bags() != null ? request.bags() : 0;
-        if (bags == 0 && settings.getBagWeightKg().compareTo(BigDecimal.ZERO) > 0) {
-            // weight in kg = weight in quintals * 100
-            BigDecimal weightKg = weight.multiply(BigDecimal.valueOf(100));
-            bags = weightKg.divide(settings.getBagWeightKg(), 0, RoundingMode.HALF_UP).intValue();
-        }
-        purchase.setBags(bags);
-
-        purchase.setRatePerQuintal(rate);
-        purchase.setGrossAmount(grossAmount);
-        purchase.setGaushalaRate(gaushalaRate);
-        purchase.setGaushalaAmount(gaushalaAmount);
-        purchase.setCommissionRate(commissionRate);
-        purchase.setCommissionAmount(commissionAmount);
-        purchase.setCashDiscountPct(cashDiscountPct);
-        purchase.setCashDiscountAmount(cashDiscountAmount);
-        purchase.setNetPayable(netPayable);
+        purchase.setCreatedBy(currentUser);
         purchase.setAmountPaid(BigDecimal.ZERO);
         purchase.setPaymentStatus(Purchase.PaymentStatus.UNPAID);
         purchase.setConfirmed(false);
-        purchase.setRemarks(request.remarks());
-        purchase.setCreatedBy(currentUser);
-
+        applyRequest(purchase, request);
         Purchase saved = purchaseRepository.save(purchase);
         auditService.record("Purchase", saved.getId(), "CREATE", null, purchaseSnapshot(saved));
+        return saved;
+    }
+
+    @Transactional
+    public Purchase updatePurchase(Long id, PurchaseRequest request) {
+        Purchase purchase = getPurchaseById(id);
+        if (purchase.isConfirmed()) {
+            throw new BusinessValidationException("Cannot edit a confirmed purchase.");
+        }
+        var before = purchaseSnapshot(purchase);
+        applyRequest(purchase, request);
+        Purchase saved = purchaseRepository.save(purchase);
+        auditService.record("Purchase", saved.getId(), "UPDATE", before, purchaseSnapshot(saved));
         return saved;
     }
 
@@ -152,7 +100,6 @@ public class PurchaseService {
             throw new BusinessValidationException("Purchase is already confirmed.");
         }
 
-        // Increment stock
         stockService.incrementStock(
                 purchase.getCommodityVariety().getId(),
                 purchase.getWeightQuintals(),
@@ -179,9 +126,106 @@ public class PurchaseService {
         auditService.record("Purchase", id, "DELETE", snapshot, null);
     }
 
+    private void applyRequest(Purchase purchase, PurchaseRequest request) {
+        Party party = partyRepository.findById(request.partyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Party not found with ID: " + request.partyId()));
+
+        if (party.getType() == Party.PartyType.TRANSPORTER) {
+            throw new BusinessValidationException("Cannot purchase from a Transporter party.");
+        }
+
+        CommodityVariety variety = commodityVarietyRepository.findById(request.commodityVarietyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Commodity variety not found with ID: " + request.commodityVarietyId()));
+
+        CommoditySettings settings = commoditySettingsRepository.findByCommodityVarietyId(variety.getId())
+                .orElseThrow(() -> new BusinessValidationException(
+                        "Commodity settings are not configured for variety '" + variety.getName() + "'. Please configure settings first."
+                ));
+
+        Purchase.PurchaseType purchaseType = request.purchaseType() != null
+                ? request.purchaseType()
+                : Purchase.PurchaseType.DIRECT;
+
+        BigDecimal weight = request.weightQuintals();
+        BigDecimal rate = request.ratePerQuintal();
+        BigDecimal grossAmount = weight.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal gaushalaRate = BigDecimal.ZERO;
+        BigDecimal gaushalaAmount = BigDecimal.ZERO;
+        BigDecimal commissionRate = BigDecimal.ZERO;
+        BigDecimal commissionAmount = BigDecimal.ZERO;
+        BigDecimal cashDiscountPct = BigDecimal.ZERO;
+        BigDecimal cashDiscountAmount = BigDecimal.ZERO;
+        BigDecimal netPayable;
+        String transportNumber = null;
+
+        if (purchaseType == Purchase.PurchaseType.INDIRECT) {
+            netPayable = grossAmount;
+            transportNumber = normalizeTransportNumber(request.transportNumber());
+        } else {
+            gaushalaRate = settings.getGausharaRate();
+            gaushalaAmount = weight.multiply(gaushalaRate).setScale(2, RoundingMode.HALF_UP);
+            commissionRate = settings.getCommissionRate();
+            commissionAmount = grossAmount.multiply(commissionRate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+            final BigDecimal directCashDiscountPct = request.cashDiscountPct() != null
+                    ? request.cashDiscountPct()
+                    : BigDecimal.ZERO;
+            if (directCashDiscountPct.compareTo(BigDecimal.ZERO) > 0) {
+                List<BigDecimal> allowedDiscounts = settings.getAllowedCashDiscountList();
+                boolean isAllowed = allowedDiscounts.stream()
+                        .anyMatch(d -> d.compareTo(directCashDiscountPct) == 0);
+                if (!isAllowed) {
+                    throw new BusinessValidationException("Cash discount percentage " + directCashDiscountPct
+                            + "% is not allowed. Allowed values: " + settings.getAllowedCashDiscounts());
+                }
+            }
+            cashDiscountPct = directCashDiscountPct;
+            cashDiscountAmount = grossAmount.multiply(directCashDiscountPct)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            netPayable = grossAmount.subtract(gaushalaAmount).subtract(commissionAmount).subtract(cashDiscountAmount)
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+
+        int bags = request.bags() != null ? request.bags() : 0;
+        if (bags == 0 && settings.getBagWeightKg().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal weightKg = weight.multiply(BigDecimal.valueOf(100));
+            bags = weightKg.divide(settings.getBagWeightKg(), 0, RoundingMode.HALF_UP).intValue();
+        }
+
+        purchase.setPurchaseDate(request.purchaseDate());
+        purchase.setPurchaseType(purchaseType);
+        purchase.setTransportNumber(transportNumber);
+        purchase.setParty(party);
+        purchase.setCommodityVariety(variety);
+        purchase.setWeightQuintals(weight);
+        purchase.setBags(bags);
+        purchase.setRatePerQuintal(rate);
+        purchase.setGrossAmount(grossAmount);
+        purchase.setGaushalaRate(gaushalaRate);
+        purchase.setGaushalaAmount(gaushalaAmount);
+        purchase.setCommissionRate(commissionRate);
+        purchase.setCommissionAmount(commissionAmount);
+        purchase.setCashDiscountPct(cashDiscountPct);
+        purchase.setCashDiscountAmount(cashDiscountAmount);
+        purchase.setNetPayable(netPayable);
+        purchase.setRemarks(request.remarks());
+    }
+
+    private String normalizeTransportNumber(String transportNumber) {
+        if (transportNumber == null) {
+            return null;
+        }
+        String trimmed = transportNumber.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private java.util.Map<String, Object> purchaseSnapshot(Purchase p) {
         return AuditService.mapOf(
                 "party", p.getParty() != null ? p.getParty().getName() : null,
+                "purchaseType", p.getPurchaseType() != null ? p.getPurchaseType().name() : null,
+                "transportNumber", p.getTransportNumber(),
                 "netPayable", p.getNetPayable(),
                 "weightQuintals", p.getWeightQuintals(),
                 "confirmed", p.isConfirmed(),

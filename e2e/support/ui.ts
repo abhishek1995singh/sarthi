@@ -85,10 +85,12 @@ export async function recordPurchaseDraft(page: Page, input: RecordPurchaseInput
 
 export async function confirmDraftPurchase(page: Page, partyName: string) {
   await page.locator('#search-purchase').fill(partyName);
-  acceptNextDialog(page);
   const row = page.locator('.purchase-table tr').filter({ hasText: partyName }).first();
   await row.locator('[id^="purchase-action-"]').click();
   await page.getByRole('menuitem', { name: /Confirm & Add Stock/i }).click();
+  await expect(page.locator('#purchase-confirm-modal')).toBeVisible();
+  await page.locator('#purchase-confirm-submit').click();
+  await expect(page.locator('#purchase-confirm-modal')).toBeHidden();
   await expect(page.getByText('Purchase confirmed & stock updated')).toBeVisible();
 }
 

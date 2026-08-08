@@ -166,6 +166,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-08-08 — Update knowledge base with recent commit log entry for Playwright E2E testing setup. (020c7ee)
 - 2026-08-08 — Add Playwright E2E testing setup and knowledge base automation. (5521f3a)
 - 2026-08-08 — Bootstrap knowledge base + commit automation (hooks, rule, script)
 <!-- kb-commit-log:end -->

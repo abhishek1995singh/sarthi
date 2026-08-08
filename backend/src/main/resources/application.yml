@@ -2,6 +2,11 @@ spring:
   application:
     name: sarthi-backend
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   datasource:
     url: jdbc:postgresql://localhost:5432/sarthi_db
     username: ${DB_USERNAME:sarthi}
@@ -35,6 +40,9 @@ app:
   jwt:
     secret: ${JWT_SECRET:sarthi-super-secret-key-change-this-in-production-must-be-256-bits}
     expiration-ms: 86400000   # 24 hours
+
+  storage:
+    location: ${STORAGE_LOCATION:./data/uploads}
 
   cors:
     # Comma-separated list. Override with CORS_ORIGINS in production (include your Vercel URL).

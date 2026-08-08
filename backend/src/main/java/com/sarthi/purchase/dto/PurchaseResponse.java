@@ -7,8 +7,11 @@ import java.time.LocalDate;
 public record PurchaseResponse(
         Long id,
         LocalDate purchaseDate,
+        Purchase.PurchaseType purchaseType,
+        String transportNumber,
         Long partyId,
         String partyName,
+        Long commodityId,
         Long commodityVarietyId,
         String commodityVarietyName,
         String commodityName,
@@ -33,8 +36,11 @@ public record PurchaseResponse(
         return new PurchaseResponse(
                 p.getId(),
                 p.getPurchaseDate(),
+                p.getPurchaseType(),
+                p.getTransportNumber(),
                 p.getParty().getId(),
                 p.getParty().getName(),
+                p.getCommodityVariety().getCommodity().getId(),
                 p.getCommodityVariety().getId(),
                 p.getCommodityVariety().getName(),
                 p.getCommodityVariety().getCommodity().getName(),

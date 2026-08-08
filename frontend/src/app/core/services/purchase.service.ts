@@ -22,6 +22,10 @@ export class PurchaseService {
     return this.http.post<ApiResponse<Purchase>>(this.base, purchase);
   }
 
+  update(id: number, purchase: PurchaseRequest): Observable<ApiResponse<Purchase>> {
+    return this.http.put<ApiResponse<Purchase>>(`${this.base}/${id}`, purchase);
+  }
+
   confirm(id: number): Observable<ApiResponse<Purchase>> {
     return this.http.post<ApiResponse<Purchase>>(`${this.base}/${id}/confirm`, {});
   }

@@ -97,11 +97,16 @@ export interface AuditPage {
   totalPages: number;
 }
 
+export type PurchaseType = 'DIRECT' | 'INDIRECT';
+
 export interface Purchase {
   id: number;
   purchaseDate: string;
+  purchaseType: PurchaseType;
+  transportNumber?: string | null;
   partyId: number;
   partyName: string;
+  commodityId: number;
   commodityVarietyId: number;
   commodityVarietyName: string;
   commodityName: string;
@@ -125,6 +130,8 @@ export interface Purchase {
 
 export interface PurchaseRequest {
   purchaseDate: string;
+  purchaseType?: PurchaseType;
+  transportNumber?: string;
   partyId: number;
   commodityVarietyId: number;
   weightQuintals: number;
@@ -135,6 +142,16 @@ export interface PurchaseRequest {
 }
 
 export type SaleType = 'FOB' | 'RATE_BASED';
+
+export interface SaleAttachment {
+  id: number;
+  saleId: number;
+  originalFilename: string;
+  contentType?: string;
+  sizeBytes: number;
+  uploadedByFullName?: string;
+  createdAt: string;
+}
 
 export interface Sale {
   id: number;
@@ -151,6 +168,7 @@ export interface Sale {
   bags: number;
   transporterId?: number;
   transporterName?: string;
+  transportNumber?: string | null;
   transportCharge: number;
   labourCharge: number;
   commissionAmount: number;
@@ -162,6 +180,7 @@ export interface Sale {
   confirmed: boolean;
   remarks?: string;
   createdByFullName?: string;
+  attachments?: SaleAttachment[];
 }
 
 export interface SaleRequest {
@@ -173,6 +192,7 @@ export interface SaleRequest {
   ratePerQuintal?: number;
   bags?: number;
   transporterId?: number;
+  transportNumber?: string;
   transportCharge?: number;
   labourCharge?: number;
   totalAmount?: number;

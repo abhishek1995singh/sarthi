@@ -19,6 +19,13 @@ public class Purchase extends BaseEntity {
     @Column(name = "purchase_date", nullable = false)
     private LocalDate purchaseDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purchase_type", nullable = false, length = 20)
+    private PurchaseType purchaseType = PurchaseType.DIRECT;
+
+    @Column(name = "transport_number", length = 50)
+    private String transportNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     private Party party;
@@ -81,12 +88,22 @@ public class Purchase extends BaseEntity {
         UNPAID, PARTIALLY_PAID, PAID
     }
 
+    public enum PurchaseType {
+        DIRECT, INDIRECT
+    }
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public LocalDate getPurchaseDate() { return purchaseDate; }
     public void setPurchaseDate(LocalDate purchaseDate) { this.purchaseDate = purchaseDate; }
+
+    public PurchaseType getPurchaseType() { return purchaseType; }
+    public void setPurchaseType(PurchaseType purchaseType) { this.purchaseType = purchaseType; }
+
+    public String getTransportNumber() { return transportNumber; }
+    public void setTransportNumber(String transportNumber) { this.transportNumber = transportNumber; }
 
     public Party getParty() { return party; }
     public void setParty(Party party) { this.party = party; }

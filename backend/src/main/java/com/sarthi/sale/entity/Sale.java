@@ -45,6 +45,9 @@ public class Sale extends BaseEntity {
     @JoinColumn(name = "transporter_id")
     private Party transporter;
 
+    @Column(name = "transport_number", length = 50)
+    private String transportNumber;
+
     @Column(name = "transport_charge", nullable = false, precision = 12, scale = 2)
     private BigDecimal transportCharge = BigDecimal.ZERO;
 
@@ -110,6 +113,9 @@ public class Sale extends BaseEntity {
 
     public Party getTransporter() { return transporter; }
     public void setTransporter(Party transporter) { this.transporter = transporter; }
+
+    public String getTransportNumber() { return transportNumber; }
+    public void setTransportNumber(String transportNumber) { this.transportNumber = transportNumber; }
 
     public BigDecimal getTransportCharge() { return transportCharge; }
     public void setTransportCharge(BigDecimal transportCharge) { this.transportCharge = transportCharge; }

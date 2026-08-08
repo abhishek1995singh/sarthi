@@ -25,7 +25,9 @@ export type StatusKind =
   | 'SUCCESS'
   | 'WARNING'
   | 'DANGER'
-  | 'INFO';
+  | 'INFO'
+  | 'DIRECT'
+  | 'INDIRECT';
 
 @Component({
   selector: 'app-status-badge',
@@ -136,7 +138,10 @@ export class StatusBadgeComponent {
       case 'INFO':
       case 'EXCHANGE':
       case 'COST_INCLUDED':
+      case 'DIRECT':
         return 'tone-info';
+      case 'INDIRECT':
+        return 'tone-neutral';
       default:
         return 'tone-neutral';
     }

@@ -4,6 +4,7 @@ import com.sarthi.sale.entity.Sale;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record SaleResponse(
         Long id,
@@ -20,6 +21,7 @@ public record SaleResponse(
         Integer bags,
         Long transporterId,
         String transporterName,
+        String transportNumber,
         BigDecimal transportCharge,
         BigDecimal labourCharge,
         BigDecimal commissionAmount,
@@ -30,9 +32,14 @@ public record SaleResponse(
         Sale.PaymentStatus paymentStatus,
         boolean confirmed,
         String remarks,
-        String createdByFullName
+        String createdByFullName,
+        List<SaleAttachmentResponse> attachments
 ) {
     public static SaleResponse from(Sale s) {
+        return from(s, List.of());
+    }
+
+    public static SaleResponse from(Sale s, List<SaleAttachmentResponse> attachments) {
         return new SaleResponse(
                 s.getId(),
                 s.getSaleDate(),
@@ -48,6 +55,7 @@ public record SaleResponse(
                 s.getBags(),
                 s.getTransporter() != null ? s.getTransporter().getId() : null,
                 s.getTransporter() != null ? s.getTransporter().getName() : null,
+                s.getTransportNumber(),
                 s.getTransportCharge(),
                 s.getLabourCharge(),
                 s.getCommissionAmount(),
@@ -58,7 +66,8 @@ public record SaleResponse(
                 s.getPaymentStatus(),
                 s.isConfirmed(),
                 s.getRemarks(),
-                s.getCreatedBy() != null ? s.getCreatedBy().getFullName() : "System"
+                s.getCreatedBy() != null ? s.getCreatedBy().getFullName() : "System",
+                attachments != null ? attachments : List.of()
         );
     }
 }
