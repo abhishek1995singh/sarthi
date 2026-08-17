@@ -13,7 +13,7 @@ Grain merchant & commission agent (**Pakki Aadhat**) desk app: purchases, sales,
 
 | Layer | Stack |
 |--------|--------|
-| Backend | Java 21, Spring Boot, PostgreSQL, Flyway, JWT |
+| Backend | Java 21, Spring Boot, PostgreSQL, Liquibase, JWT |
 | Frontend | Angular 18 standalone, Material, signals where used |
 | E2E | Playwright (`e2e/`) |
 | Deploy | API → Render; UI → Vercel |
@@ -82,8 +82,8 @@ backend/src/main/java/com/sarthi/
 ```
 
 - Context path: `/api`
-- Migrations: `backend/src/main/resources/db/migration/` (`V1`…`V4` prefs + audit actions)
-- `ddl-auto: validate` — schema only via Flyway
+- Migrations: `backend/src/main/resources/db/changelog/` (Liquibase; preprod profile + `deploy/` Docker stack for single-server)
+- `ddl-auto: validate` — schema only via Liquibase (`db/changelog`)
 - **Pagination:** Cash book and ledger support paginated queries with `page`, `size` params (max 100/page)
 
 ---
@@ -168,6 +168,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-08-17 — Switch Sarthi to Liquibase and add preprod plus Docker deploy stack. (4dae523)
 - 2026-08-08 — Update knowledge base with cash book pagination feature (5f1cc97)
 - 2026-08-08 — Add server-side ledger pagination and redesign party ledger UI. (09cad2d)
 - 2026-08-08 — Update knowledge base commit log after gitignore change. (9dbb593)
