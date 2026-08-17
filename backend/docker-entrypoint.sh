@@ -29,4 +29,9 @@ if [ -n "${DATABASE_URL:-}" ]; then
   esac
 fi
 
-exec java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar /app/app.jar
+JAVA_OPTS="${JAVA_OPTS:-}"
+if [ -n "${SPRING_PROFILES_ACTIVE:-}" ]; then
+  JAVA_OPTS="$JAVA_OPTS -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}"
+fi
+
+exec java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 $JAVA_OPTS -jar /app/app.jar

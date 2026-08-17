@@ -1,0 +1,25 @@
+# Local pre-prod database for Sarthi backend (port 5433 avoids clashing with dev Postgres on 5432).
+# Usage:
+#   docker compose -f docker-compose.preprod.yml up -d
+#   cd backend && SPRING_PROFILES_ACTIVE=preprod JWT_SECRET=dev-preprod-secret mvn spring-boot:run
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sarthi-preprod-postgres
+    environment:
+      POSTGRES_DB: sarthi_preprod
+      POSTGRES_USER: sarthi
+      POSTGRES_PASSWORD: sarthi_preprod
+    ports:
+      - "5433:5432"
+    volumes:
+      - sarthi_preprod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sarthi -d sarthi_preprod"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sarthi_preprod_pgdata:

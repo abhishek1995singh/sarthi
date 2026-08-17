@@ -1,0 +1,98 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1-initial-schema
+      author: sarthi
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: users
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V1__initial_schema.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 2-seed-data
+      author: sarthi
+      context: seed
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: SELECT COUNT(*) FROM users WHERE username = 'admin'
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V2__seed_data.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 3-fix-admin-password
+      author: sarthi
+      context: seed
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V3__fix_admin_password.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 4-user-prefs-and-audit-actions
+      author: sarthi
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: users
+            columnName: preferred_locale
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V4__user_prefs_and_audit_actions.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 5-purchase-type-and-transport
+      author: sarthi
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: purchase
+            columnName: purchase_type
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V5__purchase_type_and_transport.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 6-sale-attachments
+      author: sarthi
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: sale_attachment
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V6__sale_attachments.sql
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 7-sale-transport-number
+      author: sarthi
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: sale
+            columnName: transport_number
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/V7__sale_transport_number.sql
+            splitStatements: true
+            stripComments: false

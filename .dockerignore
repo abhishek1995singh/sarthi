@@ -1,0 +1,10 @@
+.git
+**/.git
+**/node_modules
+**/target
+**/dist
+**/.angular
+**/test-results
+backend/data
+e2e/test-results
+*.log

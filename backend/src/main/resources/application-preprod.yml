@@ -1,0 +1,39 @@
+# Pre-production profile — staging DB, env-driven secrets, seed data included.
+# Run: SPRING_PROFILES_ACTIVE=preprod mvn spring-boot:run
+# Or:  docker compose -f docker-compose.preprod.yml up -d && SPRING_PROFILES_ACTIVE=preprod ...
+
+spring:
+  config:
+    activate:
+      on-profile: preprod
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/sarthi_preprod}
+    username: ${SPRING_DATASOURCE_USERNAME:sarthi}
+    password: ${SPRING_DATASOURCE_PASSWORD:sarthi_preprod}
+    hikari:
+      maximum-pool-size: 15
+
+  jpa:
+    show-sql: false
+
+  liquibase:
+    contexts: seed,preprod
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:https://sarthi-preprod.vercel.app,http://localhost:4200}
+  storage:
+    location: ${STORAGE_LOCATION:./data/preprod/uploads}
+
+logging:
+  level:
+    com.sarthi: INFO
+    liquibase: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
