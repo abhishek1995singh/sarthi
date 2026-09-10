@@ -544,11 +544,11 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
                 <ng-container *ngIf="purchaseForm.value.purchaseType === 'DIRECT'">
                   <div class="billing-item">
                     <span class="lbl">Gaushala (₹{{ bill.gaushalaRate }}/qtl)</span>
-                    <span class="val text-negative">− ₹{{ bill.gaushalaAmount | number:'1.2-2' }}</span>
+                    <span class="val">+ ₹{{ bill.gaushalaAmount | number:'1.2-2' }}</span>
                   </div>
                   <div class="billing-item">
                     <span class="lbl">Commission ({{ bill.commissionRate }}%)</span>
-                    <span class="val text-negative">− ₹{{ bill.commissionAmount | number:'1.2-2' }}</span>
+                    <span class="val">+ ₹{{ bill.commissionAmount | number:'1.2-2' }}</span>
                   </div>
                   <div class="billing-item" *ngIf="bill.cashDiscountAmount > 0">
                     <span class="lbl">Cash Discount ({{ bill.cashDiscountPct }}%)</span>
@@ -556,7 +556,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
                   </div>
                 </ng-container>
                 <div class="billing-item indirect-note" *ngIf="purchaseForm.value.purchaseType === 'INDIRECT'">
-                  <span class="lbl">Indirect purchase — no deductions</span>
+                  <span class="lbl">Indirect purchase — no gaushala, commission, or cash discount</span>
                 </div>
                 <div class="billing-item grand-total">
                   <span class="lbl">Net Payable to Aadhti</span>
@@ -1402,15 +1402,13 @@ export class PurchaseListComponent implements OnInit {
       if (p.gaushalaAmount > 0) {
         lines.push({
           label: `${this.i18n.t('purchase.billing.gaushala')} · ₹${p.gaushalaRate}/qtl`,
-          amount: p.gaushalaAmount,
-          negative: true
+          amount: p.gaushalaAmount
         });
       }
       if (p.commissionAmount > 0) {
         lines.push({
           label: `${this.i18n.t('purchase.billing.commission')} · ${p.commissionRate}%`,
-          amount: p.commissionAmount,
-          negative: true
+          amount: p.commissionAmount
         });
       }
       if (p.cashDiscountAmount > 0) {
@@ -1530,7 +1528,7 @@ export class PurchaseListComponent implements OnInit {
         const gaushala = weight * this.selectedSettings!.gausharaRate;
         const commission = gross * (this.selectedSettings!.commissionRate / 100);
         const discount = gross * (discountPct / 100);
-        const net = gross - gaushala - commission - discount;
+        const net = gross + gaushala + commission - discount;
 
         this.bill = {
           grossAmount: Math.round(gross * 100) / 100,

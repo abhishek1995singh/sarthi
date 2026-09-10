@@ -184,8 +184,8 @@ public class PurchaseService {
             cashDiscountPct = directCashDiscountPct;
             cashDiscountAmount = grossAmount.multiply(directCashDiscountPct)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            netPayable = grossAmount.subtract(gaushalaAmount).subtract(commissionAmount).subtract(cashDiscountAmount)
-                    .setScale(2, RoundingMode.HALF_UP);
+            netPayable = DirectPurchaseBill.netPayable(
+                    grossAmount, gaushalaAmount, commissionAmount, cashDiscountAmount);
         }
 
         int bags = request.bags() != null ? request.bags() : 0;

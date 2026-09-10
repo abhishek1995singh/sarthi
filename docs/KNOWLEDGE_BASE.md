@@ -41,7 +41,7 @@ See also [DEPLOY.md](../DEPLOY.md).
 
 - **Party** — AADHTI, BUYER, MILL, TRANSPORTER
 - **Commodity / variety** — configurable commission, gaushala, bardana mode, bag weight
-- **Purchase** — draft → confirm (stock in + bardana); payments via cash book / ledger
+- **Purchase** — draft → confirm (stock in + bardana); payments via cash book / ledger. Direct net payable = gross **+ gaushala + commission − cash discount**. Indirect is gross only.
 - **Sale** — draft → confirm (stock out); receipts similarly
 - **Cash book** — daily receipts/payments; posts to party ledger; opening balance / finalize day; **NEW:** paginated all-entries view with date filters
 - **Ledger** — auto-posted party balances; paginated unpaid purchases and entries
