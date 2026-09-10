@@ -167,6 +167,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-09-10 — Add gaushala and commission to direct purchase net payable. (9f06cd8)
 - 2026-09-10 — Harden VPS deploys with TLS, backups, and a credential-free login page. (44cbae7)
 - 2026-08-17 — Switch Sarthi to Liquibase and add preprod plus Docker deploy stack. (4dae523)
 - 2026-08-08 — Update knowledge base with cash book pagination feature (5f1cc97)
