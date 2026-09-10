@@ -20,6 +20,9 @@ frontend/.vercel/
 **/.env
 **/.env.*
 
+# Postgres dumps from deploy/deploy.sh
+deploy/backups/
+
 # IDE / OS
 .idea/
 .vscode/

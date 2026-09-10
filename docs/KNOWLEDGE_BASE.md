@@ -16,7 +16,7 @@ Grain merchant & commission agent (**Pakki Aadhat**) desk app: purchases, sales,
 | Backend | Java 21, Spring Boot, PostgreSQL, Liquibase, JWT |
 | Frontend | Angular 18 standalone, Material, signals where used |
 | E2E | Playwright (`e2e/`) |
-| Deploy | API → Render; UI → Vercel |
+| Deploy | Docker Compose on a VPS (Postgres + API + Nginx + Caddy). `./deploy/deploy.sh` dumps Postgres, then rsyncs and rebuilds. |
 
 ---
 
@@ -24,15 +24,14 @@ Grain merchant & commission agent (**Pakki Aadhat**) desk app: purchases, sales,
 
 | | |
 |--|--|
-| Frontend | https://sarthi-tan.vercel.app |
-| API | https://sarthi-api-t2bd.onrender.com/api |
-| Health | https://sarthi-api-t2bd.onrender.com/api/actuator/health |
+| Production | https://saarthi-mandi.online |
+| Health | https://saarthi-mandi.online/api/actuator/health |
 | GitHub | https://github.com/abhishek1995singh/sarthi |
 | Local API | http://localhost:8080/api |
 | Local UI | http://localhost:4200 |
-| Default login | `admin` / `Admin@123` (OWNER) |
+| Default login | `admin` / `Admin@123` (OWNER) — not shown on the login page |
 
-**Render free tier:** service sleeps after ~15 min idle; first request can take 30–60s. Vercel FE is fine; API must warm up.
+**VPS backups:** `./deploy/deploy.sh` (or `./deploy/deploy.sh backup`) writes gzipped dumps to `/var/backups/sarthi/` and copies them to local `deploy/backups/`. Restore with `./deploy/deploy.sh restore`.
 
 See also [DEPLOY.md](../DEPLOY.md).
 

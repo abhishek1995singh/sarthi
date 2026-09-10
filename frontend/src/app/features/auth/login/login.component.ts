@@ -109,8 +109,6 @@ import { MatMenuModule } from '@angular/material/menu';
                 {{ loading ? ('login.submitting' | t) : ('login.submit' | t) }}
               </button>
             </form>
-
-            <p class="login-hint">{{ 'login.hint' | t }}</p>
           </div>
         </div>
       </section>
@@ -324,13 +322,6 @@ import { MatMenuModule } from '@angular/material/menu';
 
     .login-btn:hover:not([disabled]) {
       box-shadow: 0 10px 24px rgba(196, 92, 38, 0.34);
-    }
-
-    .login-hint {
-      text-align: center;
-      margin-top: 16px;
-      color: var(--color-text-muted);
-      font-size: 12px;
     }
 
     @media (max-width: 900px) {

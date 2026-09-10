@@ -1,0 +1,16 @@
+{
+	email abhi.singh.dma@gmail.com
+}
+
+www.saarthi-mandi.online {
+	redir https://saarthi-mandi.online{uri} permanent
+}
+
+saarthi-mandi.online {
+	encode gzip
+	reverse_proxy web:80
+}
+
+http://195.35.6.14 {
+	reverse_proxy web:80
+}
