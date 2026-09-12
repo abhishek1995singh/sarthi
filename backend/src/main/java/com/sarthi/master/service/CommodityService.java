@@ -92,10 +92,13 @@ public class CommodityService {
         settings.setCommissionRate(request.commissionRate());
         settings.setAllowedCashDiscounts(request.allowedCashDiscounts());
         settings.setBardanaMode(request.bardanaMode());
-        settings.setBagWeightKg(request.bagWeightKg());
         settings.setSaleTaxRate(request.saleTaxRate());
-        settings.setLabourRateBasis(request.labourRateBasis());
-        settings.setLabourRate(request.labourRate());
+        if (request.labourRateBasis() != null) {
+            settings.setLabourRateBasis(request.labourRateBasis());
+        }
+        if (request.labourRate() != null) {
+            settings.setLabourRate(request.labourRate());
+        }
 
         return CommoditySettingsResponse.from(settingsRepository.save(settings));
     }

@@ -189,10 +189,6 @@ public class PurchaseService {
         }
 
         int bags = request.bags() != null ? request.bags() : 0;
-        if (bags == 0 && settings.getBagWeightKg().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal weightKg = weight.multiply(BigDecimal.valueOf(100));
-            bags = weightKg.divide(settings.getBagWeightKg(), 0, RoundingMode.HALF_UP).intValue();
-        }
 
         purchase.setPurchaseDate(request.purchaseDate());
         purchase.setPurchaseType(purchaseType);

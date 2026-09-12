@@ -4,7 +4,6 @@ import {
   confirmDraftPurchase,
   createParty,
   expectPurchaseInTable,
-  postPurchasePayment,
   recordPurchaseDraft,
 } from '../support/ui';
 import { uniqueLabel } from '../support/test-data';
@@ -28,13 +27,6 @@ test.describe.serial('Purchase flow', () => {
     await confirmDraftPurchase(page, partyName);
     const row = await expectPurchaseInTable(page, partyName);
     await expect(row.locator('[data-status="DRAFT"]')).toHaveCount(0);
-    await expect(row.locator('[data-status="UNPAID"]')).toBeVisible();
-  });
-
-  test('posts payment against confirmed purchase', async ({ page }) => {
-    await page.goto(ROUTES.purchase);
-    await postPurchasePayment(page, partyName);
-    const row = await expectPurchaseInTable(page, partyName);
-    await expect(row.locator('[data-status="PAID"]')).toBeVisible();
+    await expect(row.locator('[data-status="STOCK_IN"]')).toBeVisible();
   });
 });

@@ -11,16 +11,5 @@ public record PartyLedgerSummaryResponse(
         BigDecimal openingBalance,
         BigDecimal purchaseOutstanding,
         BigDecimal totalOutstanding,
-        PageResponse<UnpaidPurchaseSummary> unpaidPurchases,
         PageResponse<LedgerEntryResponse> entries
-) {
-    public record UnpaidPurchaseSummary(
-            Long purchaseId,
-            String purchaseDate,
-            String commodityVarietyName,
-            BigDecimal netPayable,
-            BigDecimal amountPaid,
-            BigDecimal outstanding,
-            String paymentStatus
-    ) {}
-}
+) {}

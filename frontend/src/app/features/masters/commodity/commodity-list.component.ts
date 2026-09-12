@@ -124,10 +124,6 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
                       <span class="val">₹{{ v.settings.gausharaRate }}/qtl</span>
                     </div>
                     <div class="settings-row">
-                      <span class="lbl">Bag weight</span>
-                      <span class="val">{{ v.settings.bagWeightKg }} kg</span>
-                    </div>
-                    <div class="settings-row">
                       <span class="lbl">Discounts</span>
                       <span class="val csv">{{ formatDiscounts(v.settings.allowedCashDiscounts) }}</span>
                     </div>
@@ -267,10 +263,6 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
               </mat-form-field>
             </div>
             <div class="form-row">
-              <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Bag weight (kg) *</mat-label>
-                <input matInput type="number" formControlName="bagWeightKg" id="settings-bag-weight" step="0.01">
-              </mat-form-field>
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Bardana mode *</mat-label>
                 <mat-select formControlName="bardanaMode" id="settings-bardana-mode">
@@ -613,7 +605,6 @@ export class CommodityListComponent implements OnInit {
     this.settingsForm = this.fb.group({
       commissionRate: [1.5, [Validators.required, Validators.min(0)]],
       gausharaRate: [3.0, [Validators.required, Validators.min(0)]],
-      bagWeightKg: [40, [Validators.required, Validators.min(0.1)]],
       bardanaMode: ['EXCHANGE', Validators.required],
       allowedCashDiscounts: ['0.5,1.0,1.5,2.0', Validators.required],
       saleTaxRate: [0.0, [Validators.required, Validators.min(0)]]
@@ -749,7 +740,6 @@ export class CommodityListComponent implements OnInit {
       this.settingsForm.patchValue({
         commissionRate: variety.settings.commissionRate,
         gausharaRate: variety.settings.gausharaRate,
-        bagWeightKg: variety.settings.bagWeightKg,
         bardanaMode: variety.settings.bardanaMode,
         allowedCashDiscounts: Array.isArray(variety.settings.allowedCashDiscounts)
           ? variety.settings.allowedCashDiscounts.join(',')
@@ -760,7 +750,6 @@ export class CommodityListComponent implements OnInit {
       this.settingsForm.reset({
         commissionRate: 1.5,
         gausharaRate: 3.0,
-        bagWeightKg: 40,
         bardanaMode: 'EXCHANGE',
         allowedCashDiscounts: '0.5,1.0,1.5,2.0',
         saleTaxRate: 0.0
@@ -773,15 +762,18 @@ export class CommodityListComponent implements OnInit {
     if (this.settingsForm.invalid || !this.editingVariety || !this.selectedCommodity) return;
     const rawVal = this.settingsForm.value;
 
-    const discountsArr = String(rawVal.allowedCashDiscounts)
+    const discountsCsv = String(rawVal.allowedCashDiscounts)
       .split(',')
       .map((x: string) => x.trim())
       .filter((x: string) => x !== '')
-      .map(Number);
+      .join(',');
 
     const updateData = {
-      ...rawVal,
-      allowedCashDiscounts: discountsArr
+      gausharaRate: Number(rawVal.gausharaRate),
+      commissionRate: Number(rawVal.commissionRate),
+      allowedCashDiscounts: discountsCsv,
+      bardanaMode: rawVal.bardanaMode,
+      saleTaxRate: Number(rawVal.saleTaxRate)
     };
 
     this.commodityService.updateSettings(this.editingVariety.id, updateData).subscribe({

@@ -11,8 +11,7 @@ public record CommoditySettingsRequest(
         @NotNull @DecimalMin("0") BigDecimal commissionRate,
         @NotBlank String allowedCashDiscounts,
         @NotNull CommoditySettings.BardanaMode bardanaMode,
-        @NotNull @DecimalMin("1") BigDecimal bagWeightKg,
         @NotNull @DecimalMin("0") BigDecimal saleTaxRate,
-        @NotNull CommoditySettings.LabourRateBasis labourRateBasis,
-        @NotNull @DecimalMin("0") BigDecimal labourRate
+        CommoditySettings.LabourRateBasis labourRateBasis,
+        @DecimalMin("0") BigDecimal labourRate
 ) {}

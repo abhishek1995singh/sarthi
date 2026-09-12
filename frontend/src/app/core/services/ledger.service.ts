@@ -5,8 +5,6 @@ import { ApiResponse, PageResult, PartyLedgerSummary } from '../models/models';
 import { environment } from '../../../environments/environment';
 
 export interface PartyLedgerPageParams {
-  unpaidPage?: number;
-  unpaidSize?: number;
   entryPage?: number;
   entrySize?: number;
 }
@@ -29,8 +27,6 @@ export class LedgerService {
   getPartyLedger(partyId: number, page?: PartyLedgerPageParams): Observable<ApiResponse<PartyLedgerSummary>> {
     let params = new HttpParams();
     if (page) {
-      if (page.unpaidPage != null) params = params.set('unpaidPage', page.unpaidPage);
-      if (page.unpaidSize != null) params = params.set('unpaidSize', page.unpaidSize);
       if (page.entryPage != null) params = params.set('entryPage', page.entryPage);
       if (page.entrySize != null) params = params.set('entrySize', page.entrySize);
     }
@@ -50,7 +46,6 @@ export class LedgerService {
   normalizeSummary(raw: PartyLedgerSummary | any): PartyLedgerSummary {
     return {
       ...raw,
-      unpaidPurchases: this.asPage(raw?.unpaidPurchases),
       entries: this.asPage(raw?.entries)
     };
   }

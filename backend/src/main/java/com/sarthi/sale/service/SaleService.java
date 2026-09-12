@@ -119,10 +119,6 @@ public class SaleService {
 
         BigDecimal qty = request.quantityQuintals();
         int bags = request.bags() != null ? request.bags() : 0;
-        if (bags == 0 && settings.getBagWeightKg().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal weightKg = qty.multiply(BigDecimal.valueOf(100));
-            bags = weightKg.divide(settings.getBagWeightKg(), 0, RoundingMode.HALF_UP).intValue();
-        }
 
         sale.setSaleDate(request.saleDate());
         sale.setSaleType(request.saleType());

@@ -12,7 +12,6 @@ public record CommoditySettingsResponse(
         BigDecimal commissionRate,
         List<BigDecimal> allowedCashDiscounts,
         CommoditySettings.BardanaMode bardanaMode,
-        BigDecimal bagWeightKg,
         BigDecimal saleTaxRate,
         CommoditySettings.LabourRateBasis labourRateBasis,
         BigDecimal labourRate
@@ -26,7 +25,6 @@ public record CommoditySettingsResponse(
                 s.getCommissionRate(),
                 s.getAllowedCashDiscountList(),
                 s.getBardanaMode(),
-                s.getBagWeightKg(),
                 s.getSaleTaxRate(),
                 s.getLabourRateBasis(),
                 s.getLabourRate()

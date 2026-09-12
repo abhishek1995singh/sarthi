@@ -94,16 +94,6 @@ export async function confirmDraftPurchase(page: Page, partyName: string) {
   await expect(page.getByText('Purchase confirmed & stock updated')).toBeVisible();
 }
 
-export async function postPurchasePayment(page: Page, partyName: string) {
-  await page.locator('#search-purchase').fill(partyName);
-  const row = page.locator('.purchase-table tr').filter({ hasText: partyName }).first();
-  await row.locator('[id^="purchase-action-"]').click();
-  await page.getByRole('menuitem', { name: /Record Payment/i }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('button', { name: 'Post Payment' }).click();
-  await expect(page.getByText('Payment posted to cash book & ledger')).toBeVisible();
-}
-
 export async function expectPurchaseInTable(page: Page, partyName: string) {
   await page.locator('#search-purchase').fill(partyName);
   const row = page.locator('.purchase-table tr').filter({ hasText: partyName }).first();

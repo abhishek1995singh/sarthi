@@ -30,7 +30,13 @@ export class CommodityService {
     return this.http.get<ApiResponse<CommoditySettings>>(`${this.base}/varieties/${varietyId}/settings`);
   }
 
-  updateSettings(varietyId: number, settings: Partial<CommoditySettings>): Observable<ApiResponse<CommoditySettings>> {
+  updateSettings(varietyId: number, settings: {
+    gausharaRate: number;
+    commissionRate: number;
+    allowedCashDiscounts: string;
+    bardanaMode: CommoditySettings['bardanaMode'];
+    saleTaxRate: number;
+  }): Observable<ApiResponse<CommoditySettings>> {
     return this.http.put<ApiResponse<CommoditySettings>>(`${this.base}/varieties/${varietyId}/settings`, settings);
   }
 }

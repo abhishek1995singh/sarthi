@@ -35,7 +35,6 @@ export interface CommoditySettings {
   commissionRate: number;
   allowedCashDiscounts: number[];
   bardanaMode: 'EXCHANGE' | 'COST_INCLUDED';
-  bagWeightKg: number;
   saleTaxRate: number;
   labourRateBasis: 'PER_BAG' | 'PER_QUINTAL' | 'FLAT';
   labourRate: number;
@@ -264,14 +263,14 @@ export interface LedgerEntry {
   createdAt: string;
 }
 
-export interface UnpaidPurchaseSummary {
-  purchaseId: number;
-  purchaseDate: string;
-  commodityVarietyName: string;
-  netPayable: number;
-  amountPaid: number;
-  outstanding: number;
-  paymentStatus: string;
+export interface PartyLedgerSummary {
+  partyId: number;
+  partyName: string;
+  partyType: string;
+  openingBalance: number;
+  purchaseOutstanding: number;
+  totalOutstanding: number;
+  entries: PageResult<LedgerEntry>;
 }
 
 export interface PageResult<T> {
@@ -280,17 +279,6 @@ export interface PageResult<T> {
   size: number;
   totalElements: number;
   totalPages: number;
-}
-
-export interface PartyLedgerSummary {
-  partyId: number;
-  partyName: string;
-  partyType: string;
-  openingBalance: number;
-  purchaseOutstanding: number;
-  totalOutstanding: number;
-  unpaidPurchases: PageResult<UnpaidPurchaseSummary>;
-  entries: PageResult<LedgerEntry>;
 }
 
 export type BardanaType = 'RECEIVED' | 'ISSUED' | 'RETURNED' | 'ADJUSTMENT';
