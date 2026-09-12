@@ -185,7 +185,8 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
-- 2026-09-12 — Visual revamp: shared UI primitives and wider page layouts (332555e)
+- 2026-09-12 — Fix stale commit hash in knowledge base log after amend (ac8fbed)
+- 2026-09-12 — Visual revamp: shared UI primitives and wider page layouts (18bd7ec)
 - 2026-09-12 — Simplify purchase payments and commodity settings (83b75e8)
 - 2026-09-10 — Record the purchase bill fix in the knowledge base log. (8657781)
 - 2026-09-10 — Add gaushala and commission to direct purchase net payable. (9f06cd8)
