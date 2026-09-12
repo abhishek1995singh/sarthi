@@ -69,22 +69,23 @@ html[data-theme='harvest'] {
   --space-xl:  32px;
   --space-2xl: 48px;
 
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Radius — one calm rounded rhythm used everywhere (was a mixed 8/12/16/24 scale) */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 
-  /* Elevation */
-  --shadow-sm: 0 1px 2px rgba(26, 35, 50, 0.05), 0 1px 3px rgba(26, 35, 50, 0.04);
-  --shadow-md: 0 4px 14px rgba(26, 35, 50, 0.08);
-  --shadow-lg: 0 12px 32px rgba(26, 35, 50, 0.12);
+  /* Elevation — softer resting shadow, slightly more lift on hover/raised */
+  --shadow-sm: 0 1px 2px rgba(26, 35, 50, 0.04), 0 1px 3px rgba(26, 35, 50, 0.03);
+  --shadow-md: 0 8px 20px rgba(26, 35, 50, 0.08), 0 2px 6px rgba(26, 35, 50, 0.04);
+  --shadow-lg: 0 20px 40px rgba(26, 35, 50, 0.14), 0 8px 18px rgba(26, 35, 50, 0.06);
 
   /* Layout */
   --sidebar-width: 252px;
   --sidebar-collapsed: 72px;
   --topbar-height: 60px;
   --touch-min: 44px;
+  --page-max-width: 1560px;
 
   /* Type — Noto Sans Devanagari ensures Hindi glyphs render cleanly */
   --font-body:    'Plus Jakarta Sans', 'Noto Sans Devanagari', system-ui, sans-serif;
@@ -247,9 +248,9 @@ html[data-theme='midnight'] {
   --scrollbar-thumb-hover: #516578;
   --sidebar-tint: #161E28;
   --topbar-tint: rgba(22, 30, 40, 0.9);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 22px 44px rgba(0, 0, 0, 0.42), 0 8px 18px rgba(0, 0, 0, 0.24);
 }
 
 *, *::before, *::after {
@@ -529,6 +530,12 @@ a:hover { color: var(--color-accent-light); text-decoration: underline; }
   color: var(--color-primary);
 }
 
+.theme-menu-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: 6px 4px 8px;
+}
+
 .mat-mdc-menu-item {
   color: var(--color-text-primary) !important;
   min-height: var(--touch-min) !important;
@@ -572,6 +579,17 @@ a:hover { color: var(--color-accent-light); text-decoration: underline; }
 .amount-negative { color: var(--color-danger);  font-weight: 600; }
 .amount-neutral  { color: var(--color-text-primary); font-weight: 600; }
 
+/* Money is read as a column of digits far more than it's read as prose —
+   tabular figures keep amounts aligned in lists/tables instead of jittering. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.inr {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
 .inr::before { content: '₹'; margin-right: 2px; }
 
 /* ===== Page chrome ===== */

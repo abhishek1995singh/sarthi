@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ThemeService } from '../../../core/theme/theme.service';
 import { ThemeId } from '../../../core/theme/themes';
 import { MatMenuModule } from '@angular/material/menu';
+import { BrandMarkComponent } from '../../../shared/ui/brand-mark/brand-mark.component';
 
 @Component({
   selector: 'app-login',
@@ -20,14 +21,14 @@ import { MatMenuModule } from '@angular/material/menu';
   imports: [
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
-    MatMenuModule, TranslatePipe
+    MatMenuModule, TranslatePipe, BrandMarkComponent
   ],
   template: `
     <div class="login-page">
       <section class="login-visual" aria-hidden="true">
         <div class="visual-glow"></div>
         <div class="visual-content">
-          <div class="visual-mark">⚖</div>
+          <div class="visual-mark"><app-brand-mark [size]="26"></app-brand-mark></div>
           <p class="visual-kicker">{{ 'app.name' | t }}</p>
           <h2 class="visual-title">{{ 'login.visualTitle' | t }}</h2>
           <p class="visual-copy">{{ 'login.visualCopy' | t }}</p>
@@ -36,13 +37,14 @@ import { MatMenuModule } from '@angular/material/menu';
 
       <section class="login-panel">
         <div class="toolbar">
-          <button type="button" class="lang-toggle" [matMenuTriggerFor]="themeMenu" [attr.aria-label]="'theme.switch' | t">
-            <mat-icon>palette</mat-icon>
+          <button type="button" class="lang-toggle" [matMenuTriggerFor]="prefsMenu" [attr.aria-label]="'theme.switch' | t">
+            <mat-icon>tune</mat-icon>
+            <span>{{ i18n.locale() === 'hi' ? ('lang.hi' | t) : ('lang.en' | t) }}</span>
             <span class="theme-dots" aria-hidden="true">
               <i *ngFor="let c of theme.current().swatches" [style.background]="c"></i>
             </span>
           </button>
-          <mat-menu #themeMenu="matMenu">
+          <mat-menu #prefsMenu="matMenu">
             <div class="theme-menu" (click)="$event.stopPropagation()">
               <div class="theme-menu-title">{{ 'theme.switch' | t }}</div>
               <button type="button" class="theme-option"
@@ -55,18 +57,29 @@ import { MatMenuModule } from '@angular/material/menu';
                 <span class="theme-name">{{ opt.labelKey | t }}</span>
                 <mat-icon *ngIf="theme.themeId() === opt.id" class="check">check</mat-icon>
               </button>
+
+              <div class="theme-menu-divider" role="separator"></div>
+
+              <div class="theme-menu-title">{{ 'lang.switch' | t }}</div>
+              <button type="button" class="theme-option"
+                      [class.active]="i18n.locale() === 'en'"
+                      (click)="i18n.setLocale('en')">
+                <span class="theme-name">{{ 'lang.en' | t }}</span>
+                <mat-icon *ngIf="i18n.locale() === 'en'" class="check">check</mat-icon>
+              </button>
+              <button type="button" class="theme-option"
+                      [class.active]="i18n.locale() === 'hi'"
+                      (click)="i18n.setLocale('hi')">
+                <span class="theme-name">{{ 'lang.hi' | t }}</span>
+                <mat-icon *ngIf="i18n.locale() === 'hi'" class="check">check</mat-icon>
+              </button>
             </div>
           </mat-menu>
-
-          <button type="button" class="lang-toggle" (click)="i18n.toggleLocale()" [attr.aria-label]="'lang.switch' | t">
-            <mat-icon>translate</mat-icon>
-            <span>{{ i18n.locale() === 'hi' ? ('lang.en' | t) : ('lang.hi' | t) }}</span>
-          </button>
         </div>
 
         <div class="login-container">
           <div class="brand mobile-brand">
-            <div class="brand-logo"><span>⚖</span></div>
+            <div class="brand-logo"><app-brand-mark [size]="24"></app-brand-mark></div>
             <h1 class="brand-name">{{ 'app.name' | t }}</h1>
             <p class="brand-tagline">{{ 'app.tagline' | t }}</p>
           </div>
@@ -151,10 +164,10 @@ import { MatMenuModule } from '@angular/material/menu';
     .visual-mark {
       width: 56px;
       height: 56px;
-      border-radius: 14px;
+      border-radius: var(--radius-md);
       display: grid;
       place-items: center;
-      font-size: 26px;
+      color: #fff;
       background: linear-gradient(145deg, var(--color-primary-light), var(--color-primary-dark));
       box-shadow: 0 10px 28px rgba(196, 92, 38, 0.35);
       margin-bottom: 20px;
@@ -240,11 +253,11 @@ import { MatMenuModule } from '@angular/material/menu';
     .brand-logo {
       width: 56px;
       height: 56px;
-      border-radius: 14px;
+      border-radius: var(--radius-md);
       background: linear-gradient(145deg, var(--color-primary-light), var(--color-primary-dark));
       display: grid;
       place-items: center;
-      font-size: 24px;
+      color: #fff;
       margin: 0 auto 12px;
       box-shadow: 0 8px 20px rgba(196, 92, 38, 0.25);
     }
@@ -312,7 +325,7 @@ import { MatMenuModule } from '@angular/material/menu';
       color: #fff !important;
       font-size: 14px !important;
       font-weight: 700 !important;
-      border-radius: 10px !important;
+      border-radius: var(--radius-sm) !important;
       display: inline-flex;
       align-items: center;
       justify-content: center;

@@ -11,10 +11,10 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CashbookService } from '../../core/services/cashbook.service';
 import { PartyService } from '../../core/services/party.service';
-import { PurchaseService } from '../../core/services/purchase.service';
-import { CashBookDay, CashBookEntry, Party, Purchase, PageResult } from '../../core/models/models';
+import { CashBookDay, CashBookEntry, Party, PageResult } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 
 type EntryFilter = '' | 'PAYMENT' | 'RECEIPT';
 type ViewMode = 'day' | 'all';
@@ -25,15 +25,11 @@ type ViewMode = 'day' | 'all';
   imports: [
     CommonModule, ReactiveFormsModule, FormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatPaginatorModule, MatSnackBarModule,
-    StatusBadgeComponent, TranslatePipe
+    StatusBadgeComponent, TranslatePipe, PageHeaderComponent
   ],
   template: `
     <div class="cashbook-page">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">{{ 'cashbook.title' | t }}</h1>
-          <p class="page-subtitle">{{ 'cashbook.subtitle' | t }}</p>
-        </div>
+      <app-page-header [title]="'cashbook.title' | t" [subtitle]="'cashbook.subtitle' | t">
         <div class="header-actions desktop-actions">
           <button
             class="btn btn-ghost"
@@ -50,7 +46,7 @@ type ViewMode = 'day' | 'all';
             <mat-icon>call_received</mat-icon> {{ 'status.RECEIPT' | t }}
           </button>
         </div>
-      </header>
+      </app-page-header>
 
       <!-- View mode toggle -->
       <section class="view-toggle card">
@@ -161,7 +157,7 @@ type ViewMode = 'day' | 'all';
             <article class="entry-card card" *ngFor="let e of filteredEntries" [attr.data-type]="e.type">
               <div class="row-top">
                 <app-status-badge [kind]="e.type"></app-status-badge>
-                <strong [class.text-success]="e.type === 'RECEIPT'" [class.text-danger]="e.type === 'PAYMENT'">
+                <strong class="tabular-nums" [class.text-success]="e.type === 'RECEIPT'" [class.text-danger]="e.type === 'PAYMENT'">
                   {{ e.type === 'PAYMENT' ? '−' : '+' }}₹{{ e.amount | number:'1.2-2' }}
                 </strong>
               </div>
@@ -208,7 +204,7 @@ type ViewMode = 'day' | 'all';
               </ng-container>
               <ng-container matColumnDef="amount">
                 <th mat-header-cell *matHeaderCellDef>Amount</th>
-                <td mat-cell *matCellDef="let e"
+                <td mat-cell *matCellDef="let e" class="tabular-nums"
                     [class.text-success]="e.type === 'RECEIPT'"
                     [class.text-danger]="e.type === 'PAYMENT'">
                   {{ e.type === 'PAYMENT' ? '−' : '+' }} ₹{{ e.amount | number:'1.2-2' }}
@@ -274,7 +270,7 @@ type ViewMode = 'day' | 'all';
               <article class="entry-card card" *ngFor="let e of allEntries.content" [attr.data-type]="e.type">
                 <div class="row-top">
                   <app-status-badge [kind]="e.type"></app-status-badge>
-                  <strong [class.text-success]="e.type === 'RECEIPT'" [class.text-danger]="e.type === 'PAYMENT'">
+                  <strong class="tabular-nums" [class.text-success]="e.type === 'RECEIPT'" [class.text-danger]="e.type === 'PAYMENT'">
                     {{ e.type === 'PAYMENT' ? '−' : '+' }}₹{{ e.amount | number:'1.2-2' }}
                   </strong>
                 </div>
@@ -325,7 +321,7 @@ type ViewMode = 'day' | 'all';
                 </ng-container>
                 <ng-container matColumnDef="amount">
                   <th mat-header-cell *matHeaderCellDef>Amount</th>
-                  <td mat-cell *matCellDef="let e"
+                  <td mat-cell *matCellDef="let e" class="tabular-nums"
                       [class.text-success]="e.type === 'RECEIPT'"
                       [class.text-danger]="e.type === 'PAYMENT'">
                     {{ e.type === 'PAYMENT' ? '−' : '+' }} ₹{{ e.amount | number:'1.2-2' }}
@@ -395,19 +391,9 @@ type ViewMode = 'day' | 'all';
 
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Party</mat-label>
-              <mat-select formControlName="partyId" id="entry-party" (selectionChange)="onPartyChange()">
+              <mat-select formControlName="partyId" id="entry-party">
                 <mat-option [value]="null">— None —</mat-option>
                 <mat-option *ngFor="let p of parties" [value]="p.id">{{ p.name }} ({{ p.type }})</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="w-full" *ngIf="entryFormType === 'PAYMENT' && unpaidPurchases.length">
-              <mat-label>Link to Purchase (optional)</mat-label>
-              <mat-select formControlName="linkedPurchaseId" id="entry-purchase">
-                <mat-option [value]="null">— General payment —</mat-option>
-                <mat-option *ngFor="let p of unpaidPurchases" [value]="p.id">
-                  #{{ p.id }} — ₹{{ (p.netPayable - p.amountPaid) | number:'1.2-2' }} due ({{ p.commodityVarietyName }})
-                </mat-option>
               </mat-select>
             </mat-form-field>
 
@@ -458,7 +444,8 @@ type ViewMode = 'day' | 'all';
   `,
   styles: [`
     .cashbook-page {
-      max-width: 1100px;
+      max-width: var(--page-max-width);
+      margin: 0 auto;
       padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
 
@@ -474,7 +461,7 @@ type ViewMode = 'day' | 'all';
       flex: 1;
       min-height: 44px;
       padding: 10px 16px;
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       border: 1px solid var(--color-border);
       background: var(--color-surface);
       color: var(--color-text-secondary);
@@ -533,7 +520,7 @@ type ViewMode = 'day' | 'all';
     .nav-btn {
       width: 44px;
       height: 44px;
-      border-radius: 12px;
+      border-radius: var(--radius-sm);
       border: 1px solid var(--color-border);
       background: var(--color-surface-raised);
       color: var(--color-text-secondary);
@@ -559,7 +546,7 @@ type ViewMode = 'day' | 'all';
       min-height: 42px;
       background: var(--color-surface-raised);
       border: 1px solid var(--color-border);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       color: var(--color-text-primary);
       padding: 8px 12px;
       font: inherit;
@@ -610,6 +597,7 @@ type ViewMode = 'day' | 'all';
       color: var(--color-text-primary);
       line-height: 1.1;
       margin-top: 4px;
+      font-variant-numeric: tabular-nums;
     }
     .hero-right {
       display: flex;
@@ -621,7 +609,7 @@ type ViewMode = 'day' | 'all';
       width: 40px;
       height: 40px;
       border: 1px solid var(--color-border);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface);
       color: var(--color-text-secondary);
       display: inline-flex;
@@ -659,6 +647,7 @@ type ViewMode = 'day' | 'all';
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
     }
     .btn-opening {
       width: 100%;
@@ -753,7 +742,7 @@ type ViewMode = 'day' | 'all';
 
     .text-success { color: var(--color-success); font-weight: 700; }
     .text-danger { color: var(--color-danger); font-weight: 700; }
-    .balance-cell { font-weight: 650; }
+    .balance-cell { font-weight: 650; font-variant-numeric: tabular-nums; }
     .table-only { display: none; }
     .cashbook-table { width: 100%; }
 
@@ -848,7 +837,6 @@ export class CashbookComponent implements OnInit {
   toDate: string | null = null;
 
   parties: Party[] = [];
-  unpaidPurchases: Purchase[] = [];
 
   showEntryForm = false;
   showOpeningForm = false;
@@ -859,7 +847,6 @@ export class CashbookComponent implements OnInit {
   constructor(
     private cashbookService: CashbookService,
     private partyService: PartyService,
-    private purchaseService: PurchaseService,
     private fb: FormBuilder,
     private snack: MatSnackBar
   ) {}
@@ -868,7 +855,6 @@ export class CashbookComponent implements OnInit {
     this.entryForm = this.fb.group({
       entryDate: [this.selectedDate, Validators.required],
       partyId: [null],
-      linkedPurchaseId: [null],
       amount: [null, [Validators.required, Validators.min(0.01)]],
       remarks: ['']
     });
@@ -939,11 +925,9 @@ export class CashbookComponent implements OnInit {
 
   openEntryForm(type: 'PAYMENT' | 'RECEIPT') {
     this.entryFormType = type;
-    this.unpaidPurchases = [];
     this.entryForm.reset({
       entryDate: this.selectedDate,
       partyId: null,
-      linkedPurchaseId: null,
       amount: null,
       remarks: ''
     });
@@ -954,21 +938,6 @@ export class CashbookComponent implements OnInit {
     this.showEntryForm = false;
   }
 
-  onPartyChange() {
-    const partyId = this.entryForm.value.partyId;
-    this.entryForm.patchValue({ linkedPurchaseId: null });
-    this.unpaidPurchases = [];
-    if (!partyId || this.entryFormType !== 'PAYMENT') return;
-
-    this.purchaseService.getAll().subscribe({
-      next: res => {
-        this.unpaidPurchases = (res.data || []).filter(
-          p => p.partyId === partyId && p.confirmed && p.paymentStatus !== 'PAID'
-        );
-      }
-    });
-  }
-
   saveEntry() {
     if (this.entryForm.invalid) return;
     this.saving = true;
@@ -977,7 +946,6 @@ export class CashbookComponent implements OnInit {
       entryDate: v.entryDate,
       type: this.entryFormType,
       partyId: v.partyId || undefined,
-      linkedPurchaseId: v.linkedPurchaseId || undefined,
       amount: Number(v.amount),
       remarks: v.remarks || undefined
     }).subscribe({

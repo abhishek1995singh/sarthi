@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ThemeId } from '../../core/theme/themes';
 import { LocaleCode } from '../../core/i18n/translations';
+import { BrandMarkComponent } from '../../shared/ui/brand-mark/brand-mark.component';
 
 interface NavItem {
   path: string;
@@ -24,7 +25,7 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule, MatMenuModule, MatButtonModule, TranslatePipe],
+  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule, MatMenuModule, MatButtonModule, TranslatePipe, BrandMarkComponent],
   template: `
     <div class="shell"
          [class.collapsed]="sidebarCollapsed && !isMobile"
@@ -34,7 +35,9 @@ interface NavItem {
 
       <aside class="sidebar" [attr.aria-hidden]="isMobile && !mobileNavOpen">
         <div class="sidebar-brand">
-          <div class="brand-logo-sm" aria-hidden="true">⚖</div>
+          <div class="brand-logo-sm" aria-hidden="true">
+            <app-brand-mark [size]="18"></app-brand-mark>
+          </div>
           <div class="brand-copy">
             <span class="brand-text">{{ 'app.name' | t }}</span>
             <span class="brand-sub">{{ 'app.tagline' | t }}</span>
@@ -94,14 +97,14 @@ interface NavItem {
             </div>
           </div>
           <div class="topbar-right">
-            <button type="button" class="lang-chip" [matMenuTriggerFor]="themeMenu" [attr.aria-label]="'theme.switch' | t">
-              <mat-icon>palette</mat-icon>
-              <span class="chip-label">{{ theme.current().labelKey | t }}</span>
+            <button type="button" class="lang-chip" [matMenuTriggerFor]="prefsMenu" [attr.aria-label]="'theme.switch' | t">
+              <mat-icon>tune</mat-icon>
+              <span class="chip-label">{{ i18n.locale() === 'hi' ? ('lang.hi' | t) : ('lang.en' | t) }}</span>
               <span class="theme-dots" aria-hidden="true">
                 <i *ngFor="let c of theme.current().swatches" [style.background]="c"></i>
               </span>
             </button>
-            <mat-menu #themeMenu="matMenu" class="theme-menu-panel">
+            <mat-menu #prefsMenu="matMenu" class="theme-menu-panel">
               <div class="theme-menu" (click)="$event.stopPropagation()">
                 <div class="theme-menu-title">{{ 'theme.switch' | t }}</div>
                 <button type="button" class="theme-option"
@@ -114,20 +117,23 @@ interface NavItem {
                   <span class="theme-name">{{ opt.labelKey | t }}</span>
                   <mat-icon *ngIf="theme.themeId() === opt.id" class="check">check</mat-icon>
                 </button>
-              </div>
-            </mat-menu>
 
-            <button type="button" class="lang-chip" [matMenuTriggerFor]="langMenu" [attr.aria-label]="'lang.switch' | t">
-              <mat-icon>translate</mat-icon>
-              <span class="chip-label">{{ i18n.locale() === 'hi' ? ('lang.hi' | t) : ('lang.en' | t) }}</span>
-            </button>
-            <mat-menu #langMenu="matMenu">
-              <button mat-menu-item (click)="setLocale('en')">
-                <span>{{ 'lang.en' | t }}</span>
-              </button>
-              <button mat-menu-item (click)="setLocale('hi')">
-                <span>{{ 'lang.hi' | t }}</span>
-              </button>
+                <div class="theme-menu-divider" role="separator"></div>
+
+                <div class="theme-menu-title">{{ 'lang.switch' | t }}</div>
+                <button type="button" class="theme-option"
+                        [class.active]="i18n.locale() === 'en'"
+                        (click)="setLocale('en')">
+                  <span class="theme-name">{{ 'lang.en' | t }}</span>
+                  <mat-icon *ngIf="i18n.locale() === 'en'" class="check">check</mat-icon>
+                </button>
+                <button type="button" class="theme-option"
+                        [class.active]="i18n.locale() === 'hi'"
+                        (click)="setLocale('hi')">
+                  <span class="theme-name">{{ 'lang.hi' | t }}</span>
+                  <mat-icon *ngIf="i18n.locale() === 'hi'" class="check">check</mat-icon>
+                </button>
+              </div>
             </mat-menu>
 
             <div class="date-chip">
@@ -190,13 +196,13 @@ interface NavItem {
       width: 36px;
       height: 36px;
       background: linear-gradient(145deg, var(--color-primary-light), var(--color-primary-dark));
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      color: #fff;
       flex-shrink: 0;
-      box-shadow: 0 6px 14px rgba(196, 92, 38, 0.28);
+      box-shadow: 0 6px 14px var(--color-primary-shadow);
     }
 
     .brand-copy {
@@ -494,6 +500,12 @@ interface NavItem {
     }
     .theme-name { flex: 1; font-size: 13px; font-weight: 600; }
     .theme-option .check { font-size: 18px; width: 18px; height: 18px; color: var(--color-primary); }
+
+    .theme-menu-divider {
+      height: 1px;
+      background: var(--color-border-subtle);
+      margin: 6px 4px 8px;
+    }
 
     .page-content {
       flex: 1;

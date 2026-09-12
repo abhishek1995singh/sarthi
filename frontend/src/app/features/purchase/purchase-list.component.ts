@@ -12,13 +12,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PurchaseService } from '../../core/services/purchase.service';
 import { PartyService } from '../../core/services/party.service';
 import { CommodityService } from '../../core/services/commodity.service';
-import { CashbookService } from '../../core/services/cashbook.service';
 import { Purchase, PurchaseRequest, Party, Commodity, CommodityVariety, CommoditySettings, PurchaseType } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 
-type PurchaseFilter = '' | 'DRAFT' | 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
+type PurchaseFilter = '' | 'DRAFT';
 type PurchaseTypeFilter = '' | PurchaseType;
 type PurchaseSortColumn = 'date' | 'party' | 'amount' | 'weight' | 'type';
 type PurchaseSortDirection = 'asc' | 'desc';
@@ -30,20 +30,16 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
   imports: [
     CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatMenuModule,
-    MatSnackBarModule, StatusBadgeComponent, TranslatePipe
+    MatSnackBarModule, StatusBadgeComponent, TranslatePipe, PageHeaderComponent
   ],
   template: `
     <div class="purchase-page">
-      <header class="page-header">
-        <div class="header-copy">
-          <h1 class="page-title">{{ 'purchase.title' | t }}</h1>
-          <p class="page-subtitle">{{ 'purchase.subtitle' | t }}</p>
-        </div>
+      <app-page-header [title]="'purchase.title' | t" [subtitle]="'purchase.subtitle' | t">
         <button class="btn btn-primary desktop-add" type="button" (click)="openForm()" id="btn-add-purchase">
           <mat-icon>add_shopping_cart</mat-icon>
           {{ 'purchase.record' | t }}
         </button>
-      </header>
+      </app-page-header>
 
       <section class="stats-strip" *ngIf="!loading && purchases.length">
         <div class="stat-pill card">
@@ -58,13 +54,6 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
           <div>
             <strong>{{ draftCount }}</strong>
             <span>Drafts</span>
-          </div>
-        </div>
-        <div class="stat-pill card danger" *ngIf="dueTotal > 0">
-          <mat-icon>account_balance_wallet</mat-icon>
-          <div>
-            <strong>₹{{ dueTotal | number:'1.0-0' }}</strong>
-            <span>Due</span>
           </div>
         </div>
         <div class="stat-pill card">
@@ -116,21 +105,12 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
               Clear all
             </button>
 
-            <div class="chip-row" role="tablist" aria-label="Payment status">
+            <div class="chip-row" role="tablist" aria-label="Stock status">
               <button type="button" class="chip" [class.active]="filterStatus === ''" (click)="setFilterStatus('')">
                 {{ 'filter.all' | t }} <em>{{ purchases.length }}</em>
               </button>
               <button type="button" class="chip" [class.active]="filterStatus === 'DRAFT'" (click)="setFilterStatus('DRAFT')">
                 {{ 'status.DRAFT' | t }} <em>{{ draftCount }}</em>
-              </button>
-              <button type="button" class="chip" [class.active]="filterStatus === 'UNPAID'" (click)="setFilterStatus('UNPAID')">
-                {{ 'status.UNPAID' | t }} <em>{{ countStatus('UNPAID') }}</em>
-              </button>
-              <button type="button" class="chip" [class.active]="filterStatus === 'PARTIALLY_PAID'" (click)="setFilterStatus('PARTIALLY_PAID')">
-                {{ 'status.PARTIALLY_PAID' | t }} <em>{{ countStatus('PARTIALLY_PAID') }}</em>
-              </button>
-              <button type="button" class="chip" [class.active]="filterStatus === 'PAID'" (click)="setFilterStatus('PAID')">
-                {{ 'status.PAID' | t }} <em>{{ countStatus('PAID') }}</em>
               </button>
             </div>
 
@@ -174,20 +154,14 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
                 </div>
                 <div class="compact-end">
                   <strong class="compact-amt">₹{{ p.netPayable | number:'1.0-0' }}</strong>
-                  <span class="compact-due" *ngIf="p.confirmed && dueOf(p) > 0">Due ₹{{ dueOf(p) | number:'1.0-0' }}</span>
                   <mat-icon class="compact-chev">{{ expandedPurchaseId === p.id ? 'expand_less' : 'chevron_right' }}</mat-icon>
                 </div>
               </div>
 
               <div class="compact-badges">
                 <app-status-badge [kind]="purchaseTypeOf(p)" [icon]="purchaseTypeIcon(p)"></app-status-badge>
-                <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
                 <app-status-badge *ngIf="p.confirmed" kind="STOCK_IN" icon="check_circle"></app-status-badge>
                 <app-status-badge *ngIf="!p.confirmed" kind="DRAFT" icon="schedule"></app-status-badge>
-              </div>
-
-              <div class="compact-progress" *ngIf="p.confirmed && p.netPayable > 0 && p.paymentStatus !== 'PAID'">
-                <i [style.width.%]="paidPct(p)"></i>
               </div>
             </button>
 
@@ -227,14 +201,6 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
                   <mat-icon>delete_outline</mat-icon>
                 </button>
               </ng-container>
-              <ng-container *ngIf="p.confirmed && p.paymentStatus !== 'PAID'">
-                <button type="button" class="btn btn-primary btn-sm btn-block" (click)="openPayForm(p)">
-                  <mat-icon>payments</mat-icon> Pay ₹{{ dueOf(p) | number:'1.0-0' }}
-                </button>
-              </ng-container>
-              <ng-container *ngIf="p.confirmed && p.paymentStatus === 'PAID'">
-                <span class="settled compact-settled"><mat-icon>verified</mat-icon> {{ 'purchase.settled' | t }}</span>
-              </ng-container>
             </div>
           </article>
         </div>
@@ -243,7 +209,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
           <div class="empty-state card">
             <mat-icon>shopping_bag</mat-icon>
             <h2>{{ hasActiveFilters ? 'No matches' : 'No purchases yet' }}</h2>
-            <p *ngIf="!hasActiveFilters">Record a draft purchase, confirm to add stock, then pay the aadhti.</p>
+            <p *ngIf="!hasActiveFilters">Record a draft purchase, then confirm to add stock.</p>
             <p *ngIf="hasActiveFilters">Try another search or filter.</p>
             <button type="button" class="btn btn-primary" (click)="openForm()" *ngIf="!hasActiveFilters">
               <mat-icon>add_shopping_cart</mat-icon>
@@ -307,7 +273,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
             </ng-container>
             <ng-container matColumnDef="rate">
               <th mat-header-cell *matHeaderCellDef>Rate</th>
-              <td mat-cell *matCellDef="let p">₹{{ p.ratePerQuintal | number:'1.2-2' }}</td>
+              <td mat-cell *matCellDef="let p" class="rate-cell">₹{{ p.ratePerQuintal | number:'1.2-2' }}</td>
             </ng-container>
             <ng-container matColumnDef="netPayable">
               <th mat-header-cell *matHeaderCellDef class="sortable" (click)="setSortColumn('amount')">
@@ -316,15 +282,6 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
               </th>
               <td mat-cell *matCellDef="let p">
                 <div class="net-payable-amt">₹{{ p.netPayable | number:'1.2-2' }}</div>
-                <div class="amount-paid-amt" *ngIf="p.amountPaid > 0">Paid: ₹{{ p.amountPaid | number:'1.2-2' }}</div>
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Payment</th>
-              <td mat-cell *matCellDef="let p">
-                <div class="status-stack">
-                  <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
-                </div>
               </td>
             </ng-container>
             <ng-container matColumnDef="confirmed">
@@ -374,16 +331,6 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
                             <mat-icon>done</mat-icon> {{ 'purchase.confirmShort' | t }}
                           </button>
                         </ng-container>
-                        <button
-                          type="button"
-                          class="btn btn-primary btn-sm"
-                          *ngIf="row.purchase.confirmed && row.purchase.paymentStatus !== 'PAID'"
-                          (click)="openPayForm(row.purchase); $event.stopPropagation()">
-                          <mat-icon>payments</mat-icon> {{ 'action.pay' | t }} ₹{{ dueOf(row.purchase) | number:'1.0-0' }}
-                        </button>
-                        <span class="settled compact-settled" *ngIf="row.purchase.confirmed && row.purchase.paymentStatus === 'PAID'">
-                          <mat-icon>verified</mat-icon> {{ 'purchase.settled' | t }}
-                        </span>
                       </div>
                     </section>
                   </div>
@@ -393,26 +340,22 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef></th>
               <td mat-cell *matCellDef="let p">
-                <button mat-icon-button type="button" [matMenuTriggerFor]="menu" [attr.id]="'purchase-action-' + p.id" (click)="$event.stopPropagation()">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-                <mat-menu #menu="matMenu">
-                  <button mat-menu-item type="button" *ngIf="!p.confirmed" (click)="editPurchase(p)">
-                    <mat-icon>edit</mat-icon><span>Edit Draft</span>
+                <ng-container *ngIf="!p.confirmed">
+                  <button mat-icon-button type="button" [matMenuTriggerFor]="menu" [attr.id]="'purchase-action-' + p.id" (click)="$event.stopPropagation()">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
-                  <button mat-menu-item type="button" *ngIf="!p.confirmed" (click)="confirmPurchase(p)">
-                    <mat-icon>done</mat-icon><span>Confirm & Add Stock</span>
-                  </button>
-                  <button mat-menu-item type="button" *ngIf="!p.confirmed" (click)="deletePurchase(p)" class="text-danger">
-                    <mat-icon>delete_outline</mat-icon><span>Delete Draft</span>
-                  </button>
-                  <button mat-menu-item type="button" *ngIf="p.confirmed && p.paymentStatus !== 'PAID'" (click)="openPayForm(p)">
-                    <mat-icon>payments</mat-icon><span>Record Payment</span>
-                  </button>
-                  <button mat-menu-item type="button" *ngIf="p.confirmed && p.paymentStatus === 'PAID'" disabled>
-                    <mat-icon>check_circle</mat-icon><span>Fully Paid</span>
-                  </button>
-                </mat-menu>
+                  <mat-menu #menu="matMenu">
+                    <button mat-menu-item type="button" (click)="editPurchase(p)">
+                      <mat-icon>edit</mat-icon><span>Edit Draft</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="confirmPurchase(p)">
+                      <mat-icon>done</mat-icon><span>Confirm & Add Stock</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="deletePurchase(p)" class="text-danger">
+                      <mat-icon>delete_outline</mat-icon><span>Delete Draft</span>
+                    </button>
+                  </mat-menu>
+                </ng-container>
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -515,9 +458,8 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
               </div>
               <div class="form-row">
                 <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>Bags Count (Optional)</mat-label>
-                  <input matInput type="number" formControlName="bags" id="purchase-bags" inputmode="numeric" placeholder="Auto-calculated if empty">
-                  <mat-hint>Calculated using bag weight setting</mat-hint>
+                  <mat-label>Bags</mat-label>
+                  <input matInput type="number" formControlName="bags" id="purchase-bags" inputmode="numeric" placeholder="0">
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-full" *ngIf="purchaseForm.value.purchaseType === 'DIRECT'">
                   <mat-label>Cash Discount %</mat-label>
@@ -570,40 +512,6 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
               <button type="submit" class="btn btn-primary" id="purchase-save" [disabled]="purchaseForm.invalid || saving">
                 <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
                 {{ saving ? 'Saving…' : (editingPurchase ? 'Update draft' : 'Save draft') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Pay -->
-      <div class="dialog-overlay" *ngIf="showPayForm" (click)="closePayForm()">
-        <div class="dialog-panel card panel-sm" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-          <div class="dialog-header">
-            <h3>Pay Purchase #{{ payingPurchase?.id }}</h3>
-            <button mat-icon-button type="button" (click)="closePayForm()" aria-label="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <p class="dialog-context" *ngIf="payingPurchase">
-            {{ payingPurchase.partyName }} — Due
-            <strong>₹{{ dueOf(payingPurchase) | number:'1.2-2' }}</strong>
-          </p>
-          <form [formGroup]="payForm" (ngSubmit)="savePayment()" class="pay-form">
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Payment Date *</mat-label>
-              <input matInput type="date" formControlName="entryDate" id="pay-date">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Amount (₹) *</mat-label>
-              <input matInput type="number" formControlName="amount" id="pay-amount" step="0.01" inputmode="decimal">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Remarks</mat-label>
-              <textarea matInput formControlName="remarks" rows="2"></textarea>
-            </mat-form-field>
-            <div class="dialog-actions">
-              <button type="button" class="btn btn-ghost" (click)="closePayForm()">{{ 'action.cancel' | t }}</button>
-              <button type="submit" class="btn btn-primary" [disabled]="payForm.invalid || paying">
-                {{ paying ? 'Posting…' : 'Post Payment' }}
               </button>
             </div>
           </form>
@@ -665,11 +573,10 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
   `,
   styles: [`
     .purchase-page {
-      max-width: 1200px;
+      max-width: var(--page-max-width);
       margin: 0 auto;
       padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
-    .header-copy { min-width: 0; }
     .desktop-add { display: none; }
 
     .stats-strip {
@@ -696,6 +603,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
       font-weight: 800;
       line-height: 1.1;
       color: var(--color-text-primary);
+      font-variant-numeric: tabular-nums;
     }
     .stat-pill span {
       display: block;
@@ -735,7 +643,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
       min-height: 44px;
       padding: 0 12px;
       border: 1px solid var(--color-border);
-      border-radius: 12px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface-raised);
     }
     .search-box mat-icon { color: var(--color-text-muted); font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
@@ -753,7 +661,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
       position: relative;
       min-width: 44px; height: 44px;
       border: 1px solid var(--color-border);
-      border-radius: 12px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface);
       color: var(--color-text-secondary);
       display: inline-flex; align-items: center; justify-content: center; gap: 4px;
@@ -1076,7 +984,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
     .compact-actions .flex-grow { flex: 1; }
     .compact-settled { padding: 4px 0; font-size: 12px; }
     .icon-btn.sm {
-      width: 36px; height: 36px; border-radius: 10px;
+      width: 36px; height: 36px; border-radius: var(--radius-sm);
     }
     .icon-btn.sm mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .btn-block { width: 100%; }
@@ -1086,7 +994,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
       color: var(--color-success); font-size: 13px; font-weight: 700;
     }
     .icon-btn {
-      width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px;
+      width: 44px; height: 44px; flex-shrink: 0; border-radius: var(--radius-sm);
       border: 1px solid var(--color-border); background: var(--color-surface);
       color: var(--color-text-secondary); display: inline-flex; align-items: center;
       justify-content: center; cursor: pointer; padding: 0;
@@ -1112,6 +1020,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
     .party-name-cell { font-weight: 650; }
     .created-by, .commodity-lbl, .bags-value { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
     .variety-lbl, .weight-value, .net-payable-amt { font-weight: 650; }
+    .weight-value, .net-payable-amt, .rate-cell { font-variant-numeric: tabular-nums; }
     .amount-paid-amt { font-size: 11px; color: var(--color-success); margin-top: 2px; }
 
     .empty-state, .loading-state {
@@ -1129,7 +1038,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
     .fab {
       position: fixed; right: 16px;
       bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-      z-index: 40; width: 56px; height: 56px; border: none; border-radius: 18px;
+      z-index: 40; width: 56px; height: 56px; border: none; border-radius: var(--radius-lg);
       background: var(--color-primary); color: #fff;
       box-shadow: 0 8px 24px var(--color-primary-shadow);
       display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
@@ -1137,7 +1046,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
 
     .type-toggle { display: flex; gap: 8px; margin-bottom: 8px; }
     .type-btn {
-      flex: 1; min-height: 44px; border-radius: 12px;
+      flex: 1; min-height: 44px; border-radius: var(--radius-sm);
       border: 1px solid var(--color-border); background: var(--color-surface);
       color: var(--color-text-secondary); font: inherit; font-size: 13px; font-weight: 650;
       cursor: pointer;
@@ -1250,7 +1159,7 @@ type PurchaseConfirmAction = 'confirm' | 'delete';
   `]
 })
 export class PurchaseListComponent implements OnInit {
-  displayedColumns = ['expand', 'date', 'type', 'party', 'commodity', 'weight', 'rate', 'netPayable', 'status', 'confirmed', 'actions'];
+  displayedColumns = ['expand', 'date', 'type', 'party', 'commodity', 'weight', 'rate', 'netPayable', 'confirmed', 'actions'];
   purchases: Purchase[] = [];
   filteredPurchases: Purchase[] = [];
   suppliers: Party[] = [];
@@ -1263,9 +1172,6 @@ export class PurchaseListComponent implements OnInit {
   showForm = false;
   saving = false;
   editingPurchase: Purchase | null = null;
-  showPayForm = false;
-  paying = false;
-  payingPurchase: Purchase | null = null;
   filterStatus: PurchaseFilter = '';
   filterPurchaseType: PurchaseTypeFilter = '';
   sortColumn: PurchaseSortColumn = 'date';
@@ -1276,7 +1182,6 @@ export class PurchaseListComponent implements OnInit {
   confirmBusy = false;
   searchText = '';
   purchaseForm: FormGroup;
-  payForm: FormGroup;
 
   billCalculated = false;
   bill = {
@@ -1294,7 +1199,6 @@ export class PurchaseListComponent implements OnInit {
     private purchaseService: PurchaseService,
     private partyService: PartyService,
     private commodityService: CommodityService,
-    private cashbookService: CashbookService,
     private fb: FormBuilder,
     private snackBar: MatSnackBar,
     private i18n: I18nService
@@ -1311,11 +1215,6 @@ export class PurchaseListComponent implements OnInit {
       ratePerQuintal: ['', [Validators.required, Validators.min(0.01)]],
       bags: [''],
       cashDiscountPct: [0],
-      remarks: ['']
-    });
-    this.payForm = this.fb.group({
-      entryDate: [todayStr, Validators.required],
-      amount: [null, [Validators.required, Validators.min(0.01)]],
       remarks: ['']
     });
   }
@@ -1349,20 +1248,6 @@ export class PurchaseListComponent implements OnInit {
 
   get draftCount(): number {
     return this.purchases.filter(p => !p.confirmed).length;
-  }
-
-  get unpaidConfirmedCount(): number {
-    return this.purchases.filter(p => p.confirmed && p.paymentStatus !== 'PAID').length;
-  }
-
-  get dueTotal(): number {
-    return this.purchases
-      .filter(p => p.confirmed && p.paymentStatus !== 'PAID')
-      .reduce((sum, p) => sum + this.dueOf(p), 0);
-  }
-
-  countStatus(status: string): number {
-    return this.purchases.filter(p => p.confirmed && p.paymentStatus === status).length;
   }
 
   countPurchaseType(type: PurchaseType): number {
@@ -1423,28 +1308,11 @@ export class PurchaseListComponent implements OnInit {
     }
 
     lines.push({ label: this.i18n.t('purchase.billing.netPayable'), amount: p.netPayable, total: true, spanFull: true });
-
-    if (p.confirmed) {
-      lines.push({ label: this.i18n.t('purchase.billing.paid'), amount: p.amountPaid, subdued: true, spanFull: true });
-      const due = this.dueOf(p);
-      if (due > 0) {
-        lines.push({ label: this.i18n.t('purchase.billing.balanceDue'), amount: due, negative: true, spanFull: true });
-      }
-    }
     return lines;
   }
 
   hasExpandMeta(p: Purchase): boolean {
     return !!(p.transportNumber || p.remarks || p.createdByFullName);
-  }
-
-  dueOf(p: Purchase): number {
-    return Math.max(0, (p.netPayable || 0) - (p.amountPaid || 0));
-  }
-
-  paidPct(p: Purchase): number {
-    if (!p.netPayable) return 0;
-    return Math.min(100, Math.round((p.amountPaid / p.netPayable) * 100));
   }
 
   loadPurchases() {
@@ -1542,15 +1410,6 @@ export class PurchaseListComponent implements OnInit {
         };
       }
       this.billCalculated = true;
-
-      if (this.selectedSettings) {
-        const bagsInput = this.purchaseForm.get('bags')?.value;
-        if (!bagsInput && this.selectedSettings.bagWeightKg > 0) {
-          const weightKg = weight * 100;
-          const autoBags = Math.round(weightKg / this.selectedSettings.bagWeightKg);
-          this.purchaseForm.get('bags')?.setValue(autoBags, { emitEvent: false });
-        }
-      }
     } else {
       this.billCalculated = false;
     }
@@ -1570,7 +1429,6 @@ export class PurchaseListComponent implements OnInit {
     let results = this.purchases.filter(p => {
       let statusOk = true;
       if (this.filterStatus === 'DRAFT') statusOk = !p.confirmed;
-      else if (this.filterStatus) statusOk = p.confirmed && p.paymentStatus === this.filterStatus;
 
       const typeOk = !this.filterPurchaseType || this.purchaseTypeOf(p) === this.filterPurchaseType;
 
@@ -1809,47 +1667,6 @@ export class PurchaseListComponent implements OnInit {
       error: err => {
         this.confirmBusy = false;
         this.snackBar.open(err.error?.message || 'Failed to delete purchase', 'Close', { duration: 4000 });
-      }
-    });
-  }
-
-  openPayForm(purchase: Purchase) {
-    const due = this.dueOf(purchase);
-    this.payingPurchase = purchase;
-    this.payForm.reset({
-      entryDate: new Date().toISOString().split('T')[0],
-      amount: Math.round(due * 100) / 100,
-      remarks: `Payment against Purchase #${purchase.id}`
-    });
-    this.showPayForm = true;
-  }
-
-  closePayForm() {
-    this.showPayForm = false;
-    this.payingPurchase = null;
-  }
-
-  savePayment() {
-    if (this.payForm.invalid || !this.payingPurchase) return;
-    this.paying = true;
-    const v = this.payForm.value;
-    this.cashbookService.createEntry({
-      entryDate: v.entryDate,
-      type: 'PAYMENT',
-      partyId: this.payingPurchase.partyId,
-      linkedPurchaseId: this.payingPurchase.id,
-      amount: Number(v.amount),
-      remarks: v.remarks || undefined
-    }).subscribe({
-      next: () => {
-        this.paying = false;
-        this.closePayForm();
-        this.snackBar.open('Payment posted to cash book & ledger', 'Close', { duration: 3000 });
-        this.loadPurchases();
-      },
-      error: err => {
-        this.paying = false;
-        this.snackBar.open(err.error?.message || 'Failed to post payment', 'Close', { duration: 4000 });
       }
     });
   }

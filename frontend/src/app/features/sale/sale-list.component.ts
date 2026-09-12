@@ -17,6 +17,7 @@ import { Sale, SaleAttachment, SaleRequest, Party, Commodity, CommodityVariety, 
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 
 type SaleFilter = '' | 'DRAFT' | 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
 type SaleTypeFilter = '' | SaleType;
@@ -30,20 +31,16 @@ type SaleConfirmAction = 'confirm' | 'delete';
   imports: [
     CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatMenuModule,
-    MatSnackBarModule, StatusBadgeComponent, TranslatePipe
+    MatSnackBarModule, StatusBadgeComponent, TranslatePipe, PageHeaderComponent
   ],
   template: `
     <div class="sale-page">
-      <header class="page-header">
-        <div class="header-copy">
-          <h1 class="page-title">{{ 'sale.title' | t }}</h1>
-          <p class="page-subtitle">{{ 'sale.subtitle' | t }}</p>
-        </div>
+      <app-page-header [title]="'sale.title' | t" [subtitle]="'sale.subtitle' | t">
         <button class="btn btn-primary desktop-add" type="button" (click)="openForm()" id="btn-add-sale">
           <mat-icon>point_of_sale</mat-icon>
           {{ 'sale.record' | t }}
         </button>
-      </header>
+      </app-page-header>
 
       <section class="stats-strip" *ngIf="!loading && sales.length">
         <div class="stat-pill card">
@@ -764,11 +761,10 @@ type SaleConfirmAction = 'confirm' | 'delete';
   `,
   styles: [`
     .sale-page {
-      max-width: 1200px;
+      max-width: var(--page-max-width);
       margin: 0 auto;
       padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
-    .header-copy { min-width: 0; }
     .desktop-add { display: none; }
 
     .stats-strip {
@@ -782,7 +778,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
       padding: 10px 12px;
     }
     .stat-pill mat-icon { color: var(--color-text-muted); font-size: 20px; width: 20px; height: 20px; }
-    .stat-pill strong { display: block; font-family: var(--font-heading); font-size: 1rem; font-weight: 800; line-height: 1.1; }
+    .stat-pill strong { display: block; font-family: var(--font-heading); font-size: 1rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .stat-pill span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
     .stat-pill.warn { border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border)); }
     .stat-pill.danger { border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border)); }
@@ -798,7 +794,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
       flex: 1; min-width: 0;
       display: flex; align-items: center; gap: 8px;
       min-height: 44px; padding: 0 12px;
-      border: 1px solid var(--color-border); border-radius: 12px;
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
       background: var(--color-surface-raised);
     }
     .search-box mat-icon { color: var(--color-text-muted); font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
@@ -814,7 +810,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
     .toolbar-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .tool-btn {
       position: relative; min-width: 44px; height: 44px;
-      border: 1px solid var(--color-border); border-radius: 12px;
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
       background: var(--color-surface); color: var(--color-text-secondary);
       display: inline-flex; align-items: center; justify-content: center; gap: 4px;
       cursor: pointer; padding: 0 10px; font: inherit;
@@ -1057,7 +1053,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
       width: 100%;
       min-height: 48px;
       border: 1.5px dashed var(--color-border);
-      border-radius: 12px;
+      border-radius: var(--radius-md);
       background: var(--color-surface);
       cursor: pointer;
       overflow: hidden;
@@ -1146,7 +1142,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
     .card-actions { display: flex; align-items: center; gap: 6px; padding: 0 10px 8px; }
     .compact-actions .btn-sm { min-height: 36px; padding: 0 10px; font-size: 12px; }
     .compact-actions .flex-grow { flex: 1; }
-    .icon-btn.sm { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; color: var(--color-text-secondary); }
+    .icon-btn.sm { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; color: var(--color-text-secondary); }
     .icon-btn.sm.danger { color: var(--color-danger); }
     .icon-btn.sm mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .btn-block { width: 100%; }
@@ -1165,6 +1161,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
     }
     .party-name, .variety-lbl, .amount { font-weight: 650; }
     .meta { font-size: 12px; color: var(--color-text-muted); }
+    .amount { font-weight: 650; font-variant-numeric: tabular-nums; }
     .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     .sortable:hover { color: var(--color-primary); }
     .sort-icon { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; }
@@ -1208,7 +1205,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
 
     .fab {
       position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 40;
-      width: 56px; height: 56px; border: none; border-radius: 18px;
+      width: 56px; height: 56px; border: none; border-radius: var(--radius-lg);
       background: var(--color-primary); color: #fff;
       box-shadow: 0 8px 24px var(--color-primary-shadow);
       display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
@@ -1218,7 +1215,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
     .type-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
     .type-option {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 4px; min-height: 84px; padding: 12px 8px; border-radius: 14px;
+      gap: 4px; min-height: 84px; padding: 12px 8px; border-radius: var(--radius-md);
       border: 1.5px solid var(--color-border); background: var(--color-surface-raised);
       color: var(--color-text-secondary); cursor: pointer; font-family: inherit;
     }
@@ -1227,7 +1224,7 @@ type SaleConfirmAction = 'confirm' | 'delete';
     }
     .estimate {
       display: flex; justify-content: space-between; align-items: center;
-      margin: 4px 0 8px; padding: 12px 14px; border-radius: 12px;
+      margin: 4px 0 8px; padding: 12px 14px; border-radius: var(--radius-md);
       background: var(--color-surface-raised); border: 1px dashed var(--color-border);
     }
     .estimate strong { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark); }

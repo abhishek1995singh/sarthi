@@ -6,35 +6,33 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { LedgerService } from '../../core/services/ledger.service';
 import { PartyService } from '../../core/services/party.service';
 import { CashbookService } from '../../core/services/cashbook.service';
-import { Party, PartyLedgerSummary, UnpaidPurchaseSummary } from '../../core/models/models';
+import { PurchaseService } from '../../core/services/purchase.service';
+import { Party, PartyLedgerSummary, Purchase } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 
 @Component({
   selector: 'app-ledger',
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatAutocompleteModule,
+    MatFormFieldModule, MatInputModule, MatAutocompleteModule,
     MatPaginatorModule, MatSnackBarModule,
-    StatusBadgeComponent, TranslatePipe
+    StatusBadgeComponent, TranslatePipe, PageHeaderComponent
   ],
   template: `
     <div class="ledger-page" [class.has-party]="!!selectedPartyId">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">{{ 'ledger.title' | t }}</h1>
-          <p class="page-subtitle">{{ 'ledger.subtitle' | t }}</p>
-        </div>
-      </header>
+      <app-page-header [title]="'ledger.title' | t" [subtitle]="'ledger.subtitle' | t"></app-page-header>
 
       <section class="toolbar card">
         <mat-form-field appearance="outline" class="party-field">
@@ -112,110 +110,77 @@ import { I18nService } from '../../core/i18n/i18n.service';
               <strong>₹{{ s.openingBalance | number:'1.0-0' }}</strong>
             </div>
             <div>
-              <span>{{ 'ledger.purchasesDue' | t }}</span>
-              <strong>₹{{ s.purchaseOutstanding | number:'1.0-0' }}</strong>
-            </div>
-            <div>
-              <span>{{ 'ledger.unpaidBills' | t }}</span>
-              <strong>{{ s.unpaidPurchases.totalElements || 0 }}</strong>
+              <span>{{ 'ledger.purchases' | t }}</span>
+              <strong>₹{{ purchaseTotal | number:'1.0-0' }}</strong>
             </div>
           </div>
         </section>
 
         <div class="workspace">
-          <section class="panel unpaid-panel">
+          <section class="panel purchases-panel">
             <div class="block-head">
-              <h3>{{ 'ledger.unpaidPurchases' | t }}</h3>
-              <span class="count">{{ s.unpaidPurchases.totalElements }}</span>
+              <h3>{{ 'ledger.purchases' | t }}</h3>
+              <span class="count">{{ partyPurchases.length }}</span>
             </div>
 
-            <div class="panel-scroll" *ngIf="s.unpaidPurchases.totalElements; else noUnpaid">
+            <div class="panel-scroll" *ngIf="partyPurchases.length; else emptyPurchases">
               <div class="mobile-list">
-                <article class="mobile-item" *ngFor="let p of s.unpaidPurchases.content">
+                <article class="mobile-item" *ngFor="let p of partyPurchases">
                   <div class="row-top">
-                    <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
-                    <strong class="due">₹{{ p.outstanding | number:'1.2-2' }}</strong>
+                    <app-status-badge *ngIf="p.confirmed" kind="STOCK_IN" icon="check_circle"></app-status-badge>
+                    <app-status-badge *ngIf="!p.confirmed" kind="DRAFT" icon="schedule"></app-status-badge>
+                    <strong class="tabular-nums">₹{{ p.netPayable | number:'1.0-0' }}</strong>
                   </div>
                   <div class="row-title">{{ p.commodityVarietyName }}</div>
                   <div class="row-meta">
-                    #{{ p.purchaseId }} · {{ p.purchaseDate | date:'dd MMM yyyy' }}
-                    · net ₹{{ p.netPayable | number:'1.0-0' }}
-                    · {{ 'ledger.paid' | t }} ₹{{ p.amountPaid | number:'1.0-0' }}
+                    {{ p.purchaseDate | date:'dd MMM yyyy' }}
+                    · {{ p.weightQuintals | number:'1.1-1' }} qtl
+                    · {{ p.bags }} bags
                   </div>
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-pay"
-                    (click)="openPayForm(p.purchaseId, p.outstanding)">
-                    <mat-icon>payments</mat-icon>
-                    {{ 'action.pay' | t }} ₹{{ p.outstanding | number:'1.0-0' }}
-                  </button>
                 </article>
               </div>
-
               <div class="table-wrap table-only">
-                <table mat-table [dataSource]="s.unpaidPurchases.content" class="full-table">
-                  <ng-container matColumnDef="id">
-                    <th mat-header-cell *matHeaderCellDef>#</th>
-                    <td mat-cell *matCellDef="let p">{{ p.purchaseId }}</td>
-                  </ng-container>
+                <table mat-table [dataSource]="partyPurchases" class="full-table">
                   <ng-container matColumnDef="date">
                     <th mat-header-cell *matHeaderCellDef>{{ 'purchase.sort.date' | t }}</th>
                     <td mat-cell *matCellDef="let p">{{ p.purchaseDate | date:'dd MMM yyyy' }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="variety">
-                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.variety' | t }}</th>
+                  <ng-container matColumnDef="item">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.item' | t }}</th>
                     <td mat-cell *matCellDef="let p">
                       <div class="cell-strong">{{ p.commodityVarietyName }}</div>
+                      <div class="cell-meta">#{{ p.id }} · {{ p.commodityName }}</div>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="qty">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.qty' | t }}</th>
+                    <td mat-cell *matCellDef="let p">
+                      <div class="cell-strong">{{ p.weightQuintals | number:'1.3-3' }} qtl</div>
+                      <div class="cell-meta">{{ p.bags }} bags</div>
                     </td>
                   </ng-container>
                   <ng-container matColumnDef="net">
-                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.netPayable' | t }}</th>
-                    <td mat-cell *matCellDef="let p">₹{{ p.netPayable | number:'1.2-2' }}</td>
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.amountCol' | t }}</th>
+                    <td mat-cell *matCellDef="let p" class="cell-strong tabular-nums">₹{{ p.netPayable | number:'1.2-2' }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="paid">
-                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.paid' | t }}</th>
-                    <td mat-cell *matCellDef="let p">₹{{ p.amountPaid | number:'1.2-2' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="due">
-                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.due' | t }}</th>
-                    <td mat-cell *matCellDef="let p" class="text-danger">₹{{ p.outstanding | number:'1.2-2' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="status">
-                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.status' | t }}</th>
+                  <ng-container matColumnDef="stock">
+                    <th mat-header-cell *matHeaderCellDef>{{ 'ledger.stock' | t }}</th>
                     <td mat-cell *matCellDef="let p">
-                      <app-status-badge [kind]="p.paymentStatus"></app-status-badge>
+                      <app-status-badge *ngIf="p.confirmed" kind="STOCK_IN" icon="check_circle"></app-status-badge>
+                      <app-status-badge *ngIf="!p.confirmed" kind="DRAFT" icon="schedule"></app-status-badge>
                     </td>
                   </ng-container>
-                  <ng-container matColumnDef="action">
-                    <th mat-header-cell *matHeaderCellDef></th>
-                    <td mat-cell *matCellDef="let p">
-                      <button class="btn btn-ghost btn-sm" type="button" (click)="openPayForm(p.purchaseId, p.outstanding)">
-                        {{ 'action.pay' | t }}
-                      </button>
-                    </td>
-                  </ng-container>
-                  <tr mat-header-row *matHeaderRowDef="unpaidColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: unpaidColumns;"></tr>
+                  <tr mat-header-row *matHeaderRowDef="purchaseColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: purchaseColumns;"></tr>
                 </table>
               </div>
             </div>
-            <ng-template #noUnpaid>
+            <ng-template #emptyPurchases>
               <div class="empty-inline">
-                <mat-icon>check_circle</mat-icon>
-                <p>{{ 'ledger.noUnpaid' | t }}</p>
+                <mat-icon>shopping_bag</mat-icon>
+                <p>{{ 'ledger.noPurchases' | t }}</p>
               </div>
             </ng-template>
-
-            <mat-paginator
-              *ngIf="s.unpaidPurchases.totalElements"
-              class="panel-pager"
-              [length]="s.unpaidPurchases.totalElements"
-              [pageIndex]="unpaidPageIndex"
-              [pageSize]="unpaidPageSize"
-              [pageSizeOptions]="pageSizeOptions"
-              [showFirstLastButtons]="true"
-              (page)="onUnpaidPage($event)">
-            </mat-paginator>
           </section>
 
           <section class="panel entries-panel">
@@ -235,7 +200,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
                   <article class="mobile-item entry" *ngFor="let e of s.entries.content">
                     <div class="row-top">
                       <app-status-badge [kind]="e.cashBookType"></app-status-badge>
-                      <strong [class.text-danger]="e.cashBookType === 'PAYMENT'"
+                      <strong class="tabular-nums" [class.text-danger]="e.cashBookType === 'PAYMENT'"
                               [class.text-success]="e.cashBookType === 'RECEIPT'">
                         ₹{{ e.amountPaid | number:'1.2-2' }}
                       </strong>
@@ -263,14 +228,14 @@ import { I18nService } from '../../core/i18n/i18n.service';
                     </ng-container>
                     <ng-container matColumnDef="narration">
                       <th mat-header-cell *matHeaderCellDef>{{ 'ledger.narration' | t }}</th>
-                      <td mat-cell *matCellDef="let e">
+                      <td mat-cell *matCellDef="let e" class="narration-cell">
                         <div class="cell-strong">{{ e.narration || '—' }}</div>
                         <div class="cell-meta" *ngIf="e.commodityVarietyName">{{ e.commodityVarietyName }}</div>
                       </td>
                     </ng-container>
                     <ng-container matColumnDef="amount">
                       <th mat-header-cell *matHeaderCellDef>{{ 'ledger.amountCol' | t }}</th>
-                      <td mat-cell *matCellDef="let e"
+                      <td mat-cell *matCellDef="let e" class="tabular-nums"
                           [class.text-danger]="e.cashBookType === 'PAYMENT'"
                           [class.text-success]="e.cashBookType === 'RECEIPT'">
                         ₹{{ e.amountPaid | number:'1.2-2' }}
@@ -278,7 +243,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
                     </ng-container>
                     <ng-container matColumnDef="outstanding">
                       <th mat-header-cell *matHeaderCellDef>{{ 'ledger.outstandingAfter' | t }}</th>
-                      <td mat-cell *matCellDef="let e">₹{{ e.outstandingBalanceAfter | number:'1.2-2' }}</td>
+                      <td mat-cell *matCellDef="let e" class="tabular-nums">₹{{ e.outstandingBalanceAfter | number:'1.2-2' }}</td>
                     </ng-container>
                     <tr mat-header-row *matHeaderRowDef="entryColumns"></tr>
                     <tr mat-row *matRowDef="let row; columns: entryColumns;"></tr>
@@ -335,15 +300,6 @@ import { I18nService } from '../../core/i18n/i18n.service';
               <mat-label>{{ 'ledger.date' | t }}</mat-label>
               <input matInput type="date" formControlName="entryDate" id="pay-date">
             </mat-form-field>
-            <mat-form-field appearance="outline" class="w-full" *ngIf="payUnpaidOptions.length">
-              <mat-label>{{ 'ledger.againstPurchase' | t }}</mat-label>
-              <mat-select formControlName="linkedPurchaseId" id="pay-purchase">
-                <mat-option [value]="null">{{ 'ledger.general' | t }}</mat-option>
-                <mat-option *ngFor="let p of payUnpaidOptions" [value]="p.purchaseId">
-                  #{{ p.purchaseId }} — {{ 'ledger.due' | t }} ₹{{ p.outstanding | number:'1.2-2' }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>{{ 'ledger.amount' | t }}</mat-label>
               <input matInput type="number" formControlName="amount" id="pay-amount" step="0.01" inputmode="decimal">
@@ -366,7 +322,8 @@ import { I18nService } from '../../core/i18n/i18n.service';
   styles: [`
     .ledger-page {
       width: 100%;
-      max-width: none;
+      max-width: var(--page-max-width);
+      margin: 0 auto;
       padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
 
@@ -397,7 +354,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
       width: 40px;
       height: 40px;
       border: 1px solid var(--color-border);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface);
       color: var(--color-text-secondary);
       display: inline-flex;
@@ -470,7 +427,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
     }
     .balance-metrics {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       padding-top: 12px;
       border-top: 1px solid var(--color-border-subtle);
@@ -502,9 +459,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
       display: flex;
       flex-direction: column;
       gap: 16px;
+      width: 100%;
     }
     .panel {
       min-width: 0;
+      width: 100%;
       display: flex;
       flex-direction: column;
       background: var(--color-surface);
@@ -513,9 +472,6 @@ import { I18nService } from '../../core/i18n/i18n.service';
       padding: 12px 14px 8px;
     }
     .panel-scroll {
-      max-height: min(42vh, 420px);
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
       min-height: 0;
     }
     .panel-pager {
@@ -559,7 +515,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
     .mobile-item {
       padding: 12px;
       border: 1px solid var(--color-border-subtle);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface-raised);
       display: flex;
       flex-direction: column;
@@ -587,21 +543,27 @@ import { I18nService } from '../../core/i18n/i18n.service';
     .text-danger { color: var(--color-danger); font-weight: 650; }
     .text-success { color: var(--color-success); font-weight: 650; }
 
-    .btn-pay {
-      margin-top: 6px;
-      width: 100%;
-      min-height: 42px;
-    }
     .btn-sm { padding: 4px 12px; font-size: 12px; min-height: 34px; }
 
     .table-wrap {
       width: 100%;
       overflow-x: auto;
       border: 1px solid var(--color-border-subtle);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface);
     }
     .full-table { width: 100%; }
+    .full-table th.mat-mdc-header-cell,
+    .full-table td.mat-mdc-cell {
+      padding: 10px 14px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .full-table td.narration-cell {
+      white-space: normal;
+      min-width: 220px;
+      max-width: 46ch;
+    }
     .cell-strong { font-weight: 650; color: var(--color-text-primary); }
     .cell-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
 
@@ -636,7 +598,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
     .loading-state.compact { padding: 20px; }
     .empty-inline {
       border: 1px dashed var(--color-border-subtle);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       background: var(--color-surface-raised);
     }
 
@@ -692,8 +654,8 @@ import { I18nService } from '../../core/i18n/i18n.service';
         align-items: flex-end;
       }
       .balance-metrics {
-        flex: 0 0 320px;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        flex: 0 0 240px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         border-top: none;
         border-left: 1px solid var(--color-border-subtle);
         padding: 0 0 0 20px;
@@ -707,20 +669,15 @@ import { I18nService } from '../../core/i18n/i18n.service';
         gap: 16px;
       }
       .panel {
-        padding: 14px 16px 8px;
-      }
-      .panel-scroll {
-        max-height: min(48vh, 480px);
+        padding: 14px 16px 10px;
       }
       .table-wrap {
         border: 1px solid var(--color-border-subtle);
-        border-radius: 10px;
+        border-radius: var(--radius-sm);
       }
     }
 
     @media (max-width: 420px) {
-      .balance-metrics { grid-template-columns: 1fr 1fr; }
-      .balance-metrics div:last-child { grid-column: 1 / -1; }
       .balance-amount-wrap { text-align: left; margin-left: 0; width: 100%; }
     }
   `]
@@ -731,25 +688,24 @@ export class LedgerComponent implements OnInit {
   partyCtrl = new FormControl<string | Party | null>('');
   selectedPartyId: number | null = null;
   summary: PartyLedgerSummary | null = null;
+  partyPurchases: Purchase[] = [];
   loading = false;
   saving = false;
   showPayForm = false;
 
-  unpaidColumns = ['id', 'date', 'variety', 'net', 'paid', 'due', 'status', 'action'];
+  purchaseColumns = ['date', 'item', 'qty', 'net', 'stock'];
   entryColumns = ['date', 'type', 'narration', 'amount', 'outstanding'];
 
   pageSizeOptions = [5, 10, 25, 50];
-  unpaidPageIndex = 0;
-  unpaidPageSize = 10;
   entryPageIndex = 0;
   entryPageSize = 10;
-  payUnpaidOptions: UnpaidPurchaseSummary[] = [];
 
   payForm!: FormGroup;
 
   constructor(
     private ledgerService: LedgerService,
     private partyService: PartyService,
+    private purchaseService: PurchaseService,
     private cashbookService: CashbookService,
     private fb: FormBuilder,
     private snack: MatSnackBar,
@@ -759,7 +715,6 @@ export class LedgerComponent implements OnInit {
   ngOnInit() {
     this.payForm = this.fb.group({
       entryDate: [new Date().toISOString().slice(0, 10), Validators.required],
-      linkedPurchaseId: [null],
       amount: [null, [Validators.required, Validators.min(0.01)]],
       remarks: ['']
     });
@@ -787,6 +742,7 @@ export class LedgerComponent implements OnInit {
         if (!selected || selected.name.toLowerCase() !== q) {
           this.selectedPartyId = null;
           this.summary = null;
+          this.partyPurchases = [];
         }
       }
     });
@@ -803,21 +759,30 @@ export class LedgerComponent implements OnInit {
     this.loadLedger(true);
   }
 
-  loadLedger(resetPages = false) {
+  loadLedger(resetPages = false, reloadPurchases = true) {
     if (!this.selectedPartyId) return;
     if (resetPages) {
-      this.unpaidPageIndex = 0;
       this.entryPageIndex = 0;
     }
     this.loading = true;
-    this.ledgerService.getPartyLedger(this.selectedPartyId, {
-      unpaidPage: this.unpaidPageIndex,
-      unpaidSize: this.unpaidPageSize,
+    const partyId = this.selectedPartyId;
+
+    const ledger$ = this.ledgerService.getPartyLedger(partyId, {
       entryPage: this.entryPageIndex,
       entrySize: this.entryPageSize
-    }).subscribe({
-      next: res => {
-        this.summary = res.data;
+    });
+    const purchases$ = reloadPurchases
+      ? this.purchaseService.getAll().pipe(catchError(() => of({ data: [] as Purchase[] })))
+      : of({ data: this.partyPurchases });
+
+    forkJoin({ ledger: ledger$, purchases: purchases$ }).subscribe({
+      next: ({ ledger, purchases }) => {
+        this.summary = ledger.data;
+        if (reloadPurchases) {
+          this.partyPurchases = (purchases.data || [])
+            .filter(p => p.partyId === partyId)
+            .sort((a, b) => (b.purchaseDate || '').localeCompare(a.purchaseDate || '') || b.id - a.id);
+        }
         this.loading = false;
       },
       error: err => {
@@ -827,39 +792,23 @@ export class LedgerComponent implements OnInit {
     });
   }
 
-  onUnpaidPage(event: PageEvent) {
-    this.unpaidPageIndex = event.pageIndex;
-    this.unpaidPageSize = event.pageSize;
-    this.loadLedger();
+  get purchaseTotal(): number {
+    return this.partyPurchases.reduce((sum, p) => sum + Number(p.netPayable || 0), 0);
   }
 
   onEntryPage(event: PageEvent) {
     this.entryPageIndex = event.pageIndex;
     this.entryPageSize = event.pageSize;
-    this.loadLedger();
+    this.loadLedger(false, false);
   }
 
-  openPayForm(purchaseId?: number, amount?: number) {
+  openPayForm() {
     this.payForm.reset({
       entryDate: new Date().toISOString().slice(0, 10),
-      linkedPurchaseId: purchaseId ?? null,
-      amount: amount ?? null,
+      amount: null,
       remarks: ''
     });
     this.showPayForm = true;
-    this.payUnpaidOptions = this.summary?.unpaidPurchases?.content ?? [];
-    if (this.selectedPartyId) {
-      this.ledgerService.getPartyLedger(this.selectedPartyId, {
-        unpaidPage: 0,
-        unpaidSize: 100,
-        entryPage: this.entryPageIndex,
-        entrySize: this.entryPageSize
-      }).subscribe({
-        next: res => {
-          this.payUnpaidOptions = res.data.unpaidPurchases.content;
-        }
-      });
-    }
   }
 
   closePayForm() {
@@ -874,7 +823,6 @@ export class LedgerComponent implements OnInit {
       entryDate: v.entryDate,
       type: 'PAYMENT',
       partyId: this.selectedPartyId,
-      linkedPurchaseId: v.linkedPurchaseId || undefined,
       amount: Number(v.amount),
       remarks: v.remarks || undefined
     }).subscribe({

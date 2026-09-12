@@ -199,7 +199,8 @@ interface TabDef {
           <div class="mobile-list" *ngIf="purchaseSale.purchases.length; else emptyPsBuy">
             <article class="mobile-item card" *ngFor="let r of purchaseSale.purchases">
               <div class="row-top">
-                <app-status-badge [kind]="r.paymentStatus"></app-status-badge>
+                <app-status-badge *ngIf="r.confirmed" kind="STOCK_IN" icon="check_circle"></app-status-badge>
+                <app-status-badge *ngIf="!r.confirmed" kind="DRAFT" icon="schedule"></app-status-badge>
                 <strong>₹{{ r.netPayable | number:'1.0-0' }}</strong>
               </div>
               <div class="row-title">{{ r.partyName }}</div>
@@ -214,7 +215,12 @@ interface TabDef {
               <ng-container matColumnDef="item"><th mat-header-cell *matHeaderCellDef>Item</th><td mat-cell *matCellDef="let r">{{ r.commodity }} / {{ r.variety }}</td></ng-container>
               <ng-container matColumnDef="qty"><th mat-header-cell *matHeaderCellDef>Qty</th><td mat-cell *matCellDef="let r">{{ r.weightQuintals }} qtl</td></ng-container>
               <ng-container matColumnDef="amt"><th mat-header-cell *matHeaderCellDef>Net</th><td mat-cell *matCellDef="let r">₹{{ r.netPayable | number:'1.2-2' }}</td></ng-container>
-              <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let r"><app-status-badge [kind]="r.paymentStatus"></app-status-badge></td></ng-container>
+              <ng-container matColumnDef="stock"><th mat-header-cell *matHeaderCellDef>Stock</th>
+                <td mat-cell *matCellDef="let r">
+                  <app-status-badge *ngIf="r.confirmed" kind="STOCK_IN" icon="check_circle"></app-status-badge>
+                  <app-status-badge *ngIf="!r.confirmed" kind="DRAFT" icon="schedule"></app-status-badge>
+                </td>
+              </ng-container>
               <tr mat-header-row *matHeaderRowDef="psPurchaseColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: psPurchaseColumns;"></tr>
             </table>
@@ -725,7 +731,7 @@ export class ReportsComponent implements OnInit {
   ledger: PartyLedgerSummary | null = null;
 
   cashColumns = ['date', 'type', 'party', 'amount', 'balance'];
-  psPurchaseColumns = ['date', 'party', 'item', 'qty', 'amt', 'status'];
+  psPurchaseColumns = ['date', 'party', 'item', 'qty', 'amt', 'stock'];
   psSaleColumns = ['date', 'party', 'item', 'qty', 'amt', 'status'];
   stockColumns = ['commodity', 'variety', 'qty', 'bags'];
   bardanaColumns = ['party', 'item', 'bags'];
@@ -875,7 +881,7 @@ export class ReportsComponent implements OnInit {
       filename = `purchase-sale-${this.purchaseSale.from}-${this.purchaseSale.to}.csv`;
       rows = [['Kind', 'Date', 'Party', 'Commodity', 'Variety', 'Qty', 'Bags', 'Amount', 'Status']];
       for (const p of this.purchaseSale.purchases) {
-        rows.push(['Purchase', p.date, p.partyName, p.commodity, p.variety, String(p.weightQuintals), String(p.bags), String(p.netPayable), p.paymentStatus]);
+        rows.push(['Purchase', p.date, p.partyName, p.commodity, p.variety, String(p.weightQuintals), String(p.bags), String(p.netPayable), p.confirmed ? 'CONFIRMED' : 'DRAFT']);
       }
       for (const s of this.purchaseSale.sales) {
         rows.push(['Sale', s.date, s.buyerName, s.commodity, s.variety, String(s.quantityQuintals), String(s.bags), String(s.totalAmount), s.paymentStatus]);

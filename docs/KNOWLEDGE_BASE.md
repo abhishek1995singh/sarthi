@@ -3,7 +3,7 @@
 > Living doc for humans and agents. Update this file whenever you change architecture, auth, deploy, UX patterns, or domain rules.  
 > Automation: see [How this file stays updated](#how-this-file-stays-updated).
 
-**Last reviewed:** 2026-08-08
+**Last reviewed:** 2026-09-12
 
 ---
 
@@ -40,11 +40,11 @@ See also [DEPLOY.md](../DEPLOY.md).
 ## Domain model (high level)
 
 - **Party** — AADHTI, BUYER, MILL, TRANSPORTER
-- **Commodity / variety** — configurable commission, gaushala, bardana mode, bag weight
-- **Purchase** — draft → confirm (stock in + bardana); payments via cash book / ledger. Direct net payable = gross **+ gaushala + commission − cash discount**. Indirect is gross only.
+- **Commodity / variety** — configurable commission, gaushala, bardana mode. Bags on purchase/sale are entered manually (no bag-weight setting).
+- **Purchase** — draft → confirm (stock in + bardana). No Unpaid / Partial / Paid on the purchase; money is party ledger / cash book. Direct net payable = gross **+ gaushala + commission − cash discount**. Indirect is gross only.
 - **Sale** — draft → confirm (stock out); receipts similarly
 - **Cash book** — daily receipts/payments; posts to party ledger; opening balance / finalize day; **NEW:** paginated all-entries view with date filters
-- **Ledger** — auto-posted party balances; paginated unpaid purchases and entries
+- **Ledger** — party outstanding, that party’s purchases (bills only, no Unpaid/Paid), paginated cash entries; Record Payment posts to cash book
 - **Bardana** — bag exchange / cost-included tracking
 - **Stock** — per variety weight + bags
 - **Users** — single company install; roles `OWNER` | `STAFF`
@@ -71,7 +71,7 @@ backend/src/main/java/com/sarthi/
   audit/          # AuditLog, AuditService (best-effort, never breaks money ops)
   cashbook/       # Day view + paginated entries (GET /cashbook/entries?page=0&size=20&fromDate=&toDate=)
   config/security/
-  ledger/         # Paginated party ledger + unpaid purchases
+  ledger/         # Paginated party ledger
   master/         # Party, Commodity, AppUser, UserManagement, MeController
   purchase/
   report/
@@ -94,13 +94,30 @@ frontend/src/app/
   core/           # auth, i18n, theme, services, models, config.json loader
   features/       # dashboard, purchase, sale, cashbook (day + all-entries views),
                   # ledger (paginated), bardana, masters, reports, settings, auth/login
-  layout/shell/   # nav, theme/lang chips, user menu
+  layout/shell/   # nav, single consolidated theme+language chip, user menu
+  shared/
+    status-badge/ # app-status-badge (kind→tone pill)
+    ui/           # app-brand-mark, app-metric-card, app-page-header, app-empty-state
 ```
 
 - Prod API URL from `/config.json` (Vercel build writes `API_URL`)
 - Shared mobile UX: cards on phone, tables on desktop (~900px), sticky FABs / bottom bars, bottom-sheet dialogs (`styles.scss`)
 - Settings (`/settings`): Preferences | Users (OWNER) | Audit (OWNER)
 - **Cash book** now supports Day View (existing) and All Entries View (paginated across dates)
+
+---
+
+## Design system (visual revamp, Sep 2026)
+
+Sarthi's 6 theme palettes (Harvest/Forest/Ocean/Slate/Clay/Midnight, `core/theme/themes.ts` + `styles.scss` token blocks) were kept as-is — they were already considered. The revamp instead fixed generic-admin-template tells: an emoji logo, multi-color left-accent metric cards, no tabular figures for money, and a crowded topbar.
+
+- **Tokens** (`styles.scss`): one radius rhythm `--radius-sm/md/lg/xl` (10/14/20/28px, was an uneven 8/12/16/24 mix) and softer two-layer shadows `--shadow-sm/md/lg`. New `.tabular-nums` utility (`font-variant-numeric: tabular-nums`) — also applied automatically via `.inr`; use it (or the class) on any list/table column showing money so digits stay aligned.
+- **`--page-max-width` token** (`styles.scss`, `1560px`): shared cap for the page-root container on Dashboard, Purchase, Sale, Cash Book, and Ledger (`.dashboard`, `.purchase-page`, `.sale-page`, `.cashbook-page`, `.ledger-page`), all centered with `margin: 0 auto`. Replaced a set of inconsistent hardcoded caps (1100/1200px, and no cap at all on Ledger) that wasted horizontal space on laptops/wide monitors — since these pages already use fluid grids/tables, raising the cap lets existing cards/columns grow instead of requiring layout restructuring. Use this token (not a new hardcoded max-width) for any new full-page screen in this family.
+- **Brand mark** (`shared/ui/brand-mark`): `<app-brand-mark [size]="18">` — an inline SVG (grain-ear glyph, `stroke="currentColor"`) that replaced the literal `⚖` emoji in the sidebar and login screen. Set `color` on an ancestor to recolor.
+- **`shared/ui/metric-card`**: `<app-metric-card icon label value hint tone link>` — single-accent stat tile (icon chip + big number + label). `tone` is `'default' | 'positive' | 'negative' | 'info'` and should stay reserved for signed money (e.g. receivable = positive, payable = negative); don't give every card a different color again.
+- **`shared/ui/page-header`**: `<app-page-header eyebrow title subtitle>` with `<ng-content>` for right-aligned actions — replaces the old hand-rolled `.page-header`/`.page-title`/`.page-subtitle` markup. All list/dashboard screens use it now.
+- **`shared/ui/empty-state`**: `<app-empty-state icon message>` with `<ng-content>` for an optional CTA — for simple single-line empty states (richer empty states with heading+paragraph+CTA, e.g. Purchase list, still hand-roll their own markup).
+- **Topbar**: theme switcher and language switcher were merged into one `prefsMenu` (chip shows current locale + theme swatches, opens one dropdown with a THEME section and a LANGUAGE section, separated by `.theme-menu-divider`) — see `layout/shell/shell.component.ts` and `features/auth/login/login.component.ts`.
 
 ---
 
@@ -113,6 +130,7 @@ When changing list/feature screens:
 3. Primary actions on cards / sticky bottom bar / FAB
 4. Forms in `.dialog-overlay` bottom sheets (not browser `prompt`/`alert`)
 5. i18n keys in `core/i18n/translations.ts` (en + hi)
+6. Use the shared `shared/ui/*` primitives (page header, metric card, empty state) and the `--radius-*` tokens / `.tabular-nums` utility instead of hand-rolling new equivalents
 
 ---
 
@@ -167,6 +185,9 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-09-12 — Visual revamp: shared UI primitives and wider page layouts (332555e)
+- 2026-09-12 — Simplify purchase payments and commodity settings (83b75e8)
+- 2026-09-10 — Record the purchase bill fix in the knowledge base log. (8657781)
 - 2026-09-10 — Add gaushala and commission to direct purchase net payable. (9f06cd8)
 - 2026-09-10 — Harden VPS deploys with TLS, backups, and a credential-free login page. (44cbae7)
 - 2026-08-17 — Switch Sarthi to Liquibase and add preprod plus Docker deploy stack. (4dae523)
