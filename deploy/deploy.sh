@@ -5,6 +5,9 @@
 #   ./deploy/deploy.sh backup       Backup only
 #   ./deploy/deploy.sh restore      Restore the latest dump
 #   ./deploy/deploy.sh restore FILE Restore a specific dump (.sql.gz)
+#   ./deploy/deploy.sh reset        Backup, then WIPE all data (drops the Postgres volume,
+#                                   re-runs migrations from empty — admin login + seed
+#                                   commodities only, no parties/purchases/sales/cash entries)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -52,6 +55,7 @@ Usage:
   $0 backup       Backup only
   $0 restore      Restore the latest dump on the target
   $0 restore FILE Restore a specific .sql.gz dump
+  $0 reset        Backup, then wipe all data and redeploy from a clean DB
 
 Env file: $ENV_FILE
 Override with SARTHI_ENV_FILE=/path/to/env $0
@@ -167,6 +171,42 @@ run_restore() {
   fi
 }
 
+reset_remote() {
+  local REMOTE_PATH="${DEPLOY_PATH:-/opt/sarthi}"
+  local project_name
+  project_name="$(basename "$DEPLOY_DIR")"
+  local volume="${project_name}_sarthi_pgdata"
+
+  echo "Stopping stack and dropping Postgres volume ($volume) on ${DEPLOY_HOST} ..."
+  ssh "$DEPLOY_HOST" "cd '$REMOTE_PATH' && docker compose -f deploy/docker-compose.yml --env-file deploy/.env down"
+  ssh "$DEPLOY_HOST" "docker volume rm '$volume'"
+  echo "Volume removed. Recreating stack from a clean database ..."
+  ssh "$DEPLOY_HOST" "cd '$REMOTE_PATH' && docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build --remove-orphans"
+  echo ""
+  echo "Reset complete. Fresh DB has only the seed data (admin login, default commodities)."
+  echo "Open: ${PUBLIC_URL}"
+}
+
+reset_local() {
+  local volume="deploy_sarthi_pgdata"
+  echo "Stopping stack and dropping local Postgres volume ($volume) ..."
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down
+  docker volume rm "$volume"
+  echo "Volume removed. Recreating stack from a clean database ..."
+  compose_up
+}
+
+run_reset() {
+  echo "Using env: $ENV_FILE"
+  echo "This backs up first, then PERMANENTLY deletes all parties/purchases/sales/cash/ledger data."
+  run_backup
+  if [[ -n "${DEPLOY_HOST:-}" ]]; then
+    reset_remote
+  else
+    reset_local
+  fi
+}
+
 cmd="${1:-deploy}"
 case "$cmd" in
   -h|--help|help)
@@ -177,6 +217,9 @@ case "$cmd" in
     ;;
   restore)
     run_restore "${2:-latest}"
+    ;;
+  reset)
+    run_reset
     ;;
   deploy)
     run_backup
