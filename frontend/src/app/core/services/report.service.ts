@@ -6,6 +6,7 @@ import {
   BardanaBalance,
   CashFlowReport,
   PartyLedgerSummary,
+  PnLReport,
   PurchaseSaleReport,
   Stock
 } from '../models/models';
@@ -29,6 +30,11 @@ export class ReportService {
   purchaseSale(from: string, to: string): Observable<ApiResponse<PurchaseSaleReport>> {
     const params = new HttpParams().set('from', from).set('to', to);
     return this.http.get<ApiResponse<PurchaseSaleReport>>(`${this.base}/purchase-sale`, { params });
+  }
+
+  pnl(from: string, to: string): Observable<ApiResponse<PnLReport>> {
+    const params = new HttpParams().set('from', from).set('to', to);
+    return this.http.get<ApiResponse<PnLReport>>(`${this.base}/pnl`, { params });
   }
 
   stock(): Observable<ApiResponse<Stock[]>> {

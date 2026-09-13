@@ -47,6 +47,7 @@ See also [DEPLOY.md](../DEPLOY.md).
 - **Ledger** — party outstanding, that party’s purchases (bills only, no Unpaid/Paid), paginated cash entries; Record Payment posts to cash book
 - **Bardana** — bag exchange / cost-included tracking
 - **Stock** — per variety weight + bags
+- **P&L (Reports > P&L tab)** — agent's own profit, not a trading margin: `income = Σ sale.commissionAmount` (buyer pays this, it's the agent's earning) minus `cost = Σ (purchase.gaushalaAmount + purchase.commissionAmount)` (these are added to `netPayable` to the AADHTI supplier, i.e. paid out, per `DirectPurchaseBill`). Bucketed daily (≤31d range) / weekly (≤120d) / monthly (longer), `GET /reports/pnl?from=&to=` → `PnLReportResponse`. Chart rendered with `chart.js` + `ng2-charts` (new FE deps, `provideCharts()` in `app.config.ts`) — first chart library in the app; use `app-pnl-chart` (`shared/ui/pnl-chart/`) as the pattern for any future chart (reads theme colors from CSS vars in `ngOnChanges`, no chart lib theme reactivity beyond that).
 - **Users** — single company install; roles `OWNER` | `STAFF`
 - **Audit** — money + masters + auth (not commodities/stock/bardana/reports)
 
@@ -97,7 +98,7 @@ frontend/src/app/
   layout/shell/   # nav, single consolidated theme+language chip, user menu
   shared/
     status-badge/ # app-status-badge (kind→tone pill)
-    ui/           # app-brand-mark, app-metric-card, app-page-header, app-empty-state
+    ui/           # app-brand-mark, app-metric-card, app-page-header, app-empty-state, app-pnl-chart
 ```
 
 - Prod API URL from `/config.json` (Vercel build writes `API_URL`)

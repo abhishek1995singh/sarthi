@@ -10,6 +10,7 @@ import com.sarthi.ledger.service.LedgerService;
 import com.sarthi.purchase.entity.Purchase;
 import com.sarthi.purchase.repository.PurchaseRepository;
 import com.sarthi.report.dto.CashFlowReportResponse;
+import com.sarthi.report.dto.PnLReportResponse;
 import com.sarthi.report.dto.PurchaseSaleReportResponse;
 import com.sarthi.sale.entity.Sale;
 import com.sarthi.sale.repository.SaleRepository;
@@ -20,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -125,6 +129,86 @@ public class ReportService {
 
         return new PurchaseSaleReportResponse(
                 from, to, purchaseTotal, saleTotal, purchaseRows, saleRows);
+    }
+
+    @Transactional(readOnly = true)
+    public PnLReportResponse pnl(LocalDate from, LocalDate to) {
+        validateRange(from, to);
+        List<Purchase> purchases = purchaseRepository
+                .findByPurchaseDateBetweenOrderByPurchaseDateAscIdAsc(from, to);
+        List<Sale> sales = saleRepository
+                .findBySaleDateBetweenOrderBySaleDateAscIdAsc(from, to);
+
+        BigDecimal totalIncome = sales.stream()
+                .map(Sale::getCommissionAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCost = purchases.stream()
+                .map(p -> p.getGaushalaAmount().add(p.getCommissionAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<LocalDate[]> periods = buildPeriods(from, to);
+        List<PnLReportResponse.PnLBucket> buckets = new ArrayList<>();
+        for (LocalDate[] period : periods) {
+            LocalDate periodStart = period[0];
+            LocalDate periodEnd = period[1];
+
+            BigDecimal income = sales.stream()
+                    .filter(s -> !s.getSaleDate().isBefore(periodStart) && !s.getSaleDate().isAfter(periodEnd))
+                    .map(Sale::getCommissionAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal cost = purchases.stream()
+                    .filter(p -> !p.getPurchaseDate().isBefore(periodStart) && !p.getPurchaseDate().isAfter(periodEnd))
+                    .map(p -> p.getGaushalaAmount().add(p.getCommissionAmount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            buckets.add(new PnLReportResponse.PnLBucket(
+                    bucketLabel(periodStart, periodEnd),
+                    periodStart, periodEnd,
+                    income, cost, income.subtract(cost)
+            ));
+        }
+
+        return new PnLReportResponse(from, to, totalIncome, totalCost,
+                totalIncome.subtract(totalCost), buckets);
+    }
+
+    private List<LocalDate[]> buildPeriods(LocalDate from, LocalDate to) {
+        long spanDays = ChronoUnit.DAYS.between(from, to) + 1;
+        List<LocalDate[]> periods = new ArrayList<>();
+
+        if (spanDays <= 31) {
+            for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
+                periods.add(new LocalDate[]{d, d});
+            }
+        } else if (spanDays <= 120) {
+            LocalDate weekStart = from;
+            while (!weekStart.isAfter(to)) {
+                LocalDate weekEnd = weekStart.plusDays(6);
+                if (weekEnd.isAfter(to)) weekEnd = to;
+                periods.add(new LocalDate[]{weekStart, weekEnd});
+                weekStart = weekEnd.plusDays(1);
+            }
+        } else {
+            LocalDate monthStart = from.withDayOfMonth(1);
+            while (!monthStart.isAfter(to)) {
+                LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+                LocalDate periodStart = monthStart.isBefore(from) ? from : monthStart;
+                LocalDate periodEnd = monthEnd.isAfter(to) ? to : monthEnd;
+                periods.add(new LocalDate[]{periodStart, periodEnd});
+                monthStart = monthStart.plusMonths(1);
+            }
+        }
+        return periods;
+    }
+
+    private String bucketLabel(LocalDate periodStart, LocalDate periodEnd) {
+        long spanDays = ChronoUnit.DAYS.between(periodStart, periodEnd) + 1;
+        if (spanDays == 1) {
+            return periodStart.format(DateTimeFormatter.ofPattern("d MMM"));
+        } else if (spanDays <= 7) {
+            return "Wk of " + periodStart.format(DateTimeFormatter.ofPattern("d MMM"));
+        }
+        return periodStart.format(DateTimeFormatter.ofPattern("MMM yyyy"));
     }
 
     @Transactional(readOnly = true)

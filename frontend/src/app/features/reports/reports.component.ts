@@ -15,13 +15,15 @@ import {
   CashFlowReport,
   Party,
   PartyLedgerSummary,
+  PnLReport,
   PurchaseSaleReport,
   Stock
 } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/status-badge/status-badge.component';
+import { PnlChartComponent } from '../../shared/ui/pnl-chart/pnl-chart.component';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
-type ReportTab = 'cash' | 'purchaseSale' | 'stock' | 'bardana' | 'ledger';
+type ReportTab = 'cash' | 'purchaseSale' | 'pnl' | 'stock' | 'bardana' | 'ledger';
 type PsView = 'purchase' | 'sale';
 
 interface TabDef {
@@ -36,7 +38,7 @@ interface TabDef {
   imports: [
     CommonModule, ReactiveFormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
-    StatusBadgeComponent, TranslatePipe
+    StatusBadgeComponent, PnlChartComponent, TranslatePipe
   ],
   template: `
     <div class="reports-page" [class.has-result]="hasResult">
@@ -252,6 +254,36 @@ interface TabDef {
             </table>
           </div>
         </ng-container>
+      </ng-container>
+
+      <!-- P&L -->
+      <ng-container *ngIf="!loading && tab === 'pnl' && pnl">
+        <section class="hero card">
+          <div class="hero-label">Net profit</div>
+          <div class="hero-amount" [class.text-success]="pnl.netProfit >= 0" [class.text-danger]="pnl.netProfit < 0">
+            ₹{{ pnl.netProfit | number:'1.0-0' }}
+          </div>
+          <div class="hero-range">{{ pnl.from }} → {{ pnl.to }}</div>
+          <div class="hero-meta">
+            <div>
+              <span>Income (sale commission)</span>
+              <strong class="text-success">₹{{ pnl.totalIncome | number:'1.0-0' }}</strong>
+            </div>
+            <div>
+              <span>Cost (gaushala + commission)</span>
+              <strong class="text-danger">₹{{ pnl.totalCost | number:'1.0-0' }}</strong>
+            </div>
+            <div>
+              <span>Periods</span>
+              <strong>{{ pnl.buckets.length }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="chart-card card" *ngIf="pnl.buckets.length; else emptyPnl">
+          <app-pnl-chart [buckets]="pnl.buckets"></app-pnl-chart>
+        </div>
+        <ng-template #emptyPnl><div class="empty card">{{ 'reports.empty' | t }}</div></ng-template>
       </ng-container>
 
       <!-- Stock -->
@@ -589,6 +621,8 @@ interface TabDef {
       margin: 0 2px 10px;
     }
 
+    .chart-card { padding: 16px; }
+
     .mobile-list { display: flex; flex-direction: column; gap: 10px; }
     .mobile-item {
       padding: 14px;
@@ -719,6 +753,7 @@ export class ReportsComponent implements OnInit {
   tabs: TabDef[] = [
     { id: 'cash', labelKey: 'reports.cashFlow', icon: 'payments' },
     { id: 'purchaseSale', labelKey: 'reports.purchaseSale', icon: 'swap_horiz' },
+    { id: 'pnl', labelKey: 'reports.pnl', icon: 'trending_up' },
     { id: 'stock', labelKey: 'reports.stock', icon: 'inventory_2' },
     { id: 'bardana', labelKey: 'reports.bardana', icon: 'shopping_bag' },
     { id: 'ledger', labelKey: 'reports.ledger', icon: 'menu_book' },
@@ -726,6 +761,7 @@ export class ReportsComponent implements OnInit {
 
   cashFlow: CashFlowReport | null = null;
   purchaseSale: PurchaseSaleReport | null = null;
+  pnl: PnLReport | null = null;
   stockRows: Stock[] | null = null;
   bardanaRows: BardanaBalance[] | null = null;
   ledger: PartyLedgerSummary | null = null;
@@ -761,11 +797,11 @@ export class ReportsComponent implements OnInit {
   }
 
   get needsDates(): boolean {
-    return this.tab === 'cash' || this.tab === 'purchaseSale';
+    return this.tab === 'cash' || this.tab === 'purchaseSale' || this.tab === 'pnl';
   }
 
   get hasResult(): boolean {
-    return !!(this.cashFlow || this.purchaseSale || this.stockRows || this.bardanaRows || this.ledger);
+    return !!(this.cashFlow || this.purchaseSale || this.pnl || this.stockRows || this.bardanaRows || this.ledger);
   }
 
   get canExport(): boolean {
@@ -829,6 +865,7 @@ export class ReportsComponent implements OnInit {
     this.loading = true;
     this.cashFlow = null;
     this.purchaseSale = null;
+    this.pnl = null;
     this.stockRows = null;
     this.bardanaRows = null;
     this.ledger = null;
@@ -847,6 +884,11 @@ export class ReportsComponent implements OnInit {
     } else if (this.tab === 'purchaseSale') {
       this.reports.purchaseSale(from, to).subscribe({
         next: r => { this.purchaseSale = r.data; this.loading = false; },
+        error: fail
+      });
+    } else if (this.tab === 'pnl') {
+      this.reports.pnl(from, to).subscribe({
+        next: r => { this.pnl = r.data; this.loading = false; },
         error: fail
       });
     } else if (this.tab === 'stock') {
@@ -885,6 +927,12 @@ export class ReportsComponent implements OnInit {
       }
       for (const s of this.purchaseSale.sales) {
         rows.push(['Sale', s.date, s.buyerName, s.commodity, s.variety, String(s.quantityQuintals), String(s.bags), String(s.totalAmount), s.paymentStatus]);
+      }
+    } else if (this.tab === 'pnl' && this.pnl) {
+      filename = `pnl-${this.pnl.from}-${this.pnl.to}.csv`;
+      rows = [['Period', 'From', 'To', 'Income', 'Cost', 'Profit']];
+      for (const b of this.pnl.buckets) {
+        rows.push([b.label, b.periodStart, b.periodEnd, String(b.income), String(b.cost), String(b.profit)]);
       }
     } else if (this.tab === 'stock' && this.stockRows) {
       filename = 'stock.csv';

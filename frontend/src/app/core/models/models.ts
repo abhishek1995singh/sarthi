@@ -339,6 +339,24 @@ export interface CashFlowReport {
   }[];
 }
 
+export interface PnLBucket {
+  label: string;
+  periodStart: string;
+  periodEnd: string;
+  income: number;
+  cost: number;
+  profit: number;
+}
+
+export interface PnLReport {
+  from: string;
+  to: string;
+  totalIncome: number;
+  totalCost: number;
+  netProfit: number;
+  buckets: PnLBucket[];
+}
+
 export interface PurchaseSaleReport {
   from: string;
   to: string;

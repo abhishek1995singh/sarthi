@@ -4,6 +4,7 @@ import com.sarthi.bardana.dto.BardanaBalanceResponse;
 import com.sarthi.common.response.ApiResponse;
 import com.sarthi.ledger.dto.PartyLedgerSummaryResponse;
 import com.sarthi.report.dto.CashFlowReportResponse;
+import com.sarthi.report.dto.PnLReportResponse;
 import com.sarthi.report.dto.PurchaseSaleReportResponse;
 import com.sarthi.report.service.ReportService;
 import com.sarthi.stock.dto.StockResponse;
@@ -36,6 +37,13 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(ApiResponse.ok(reportService.purchaseSale(from, to)));
+    }
+
+    @GetMapping("/pnl")
+    public ResponseEntity<ApiResponse<PnLReportResponse>> pnl(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.pnl(from, to)));
     }
 
     @GetMapping("/stock")
