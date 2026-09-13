@@ -186,6 +186,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-09-13 — Add P&L chart to Reports (44d0ce4)
 - 2026-09-12 — Fix stale commit hash in knowledge base log after amend (ac8fbed)
 - 2026-09-12 — Visual revamp: shared UI primitives and wider page layouts (18bd7ec)
 - 2026-09-12 — Simplify purchase payments and commodity settings (83b75e8)
