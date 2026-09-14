@@ -51,7 +51,7 @@ export class PnlChartComponent implements OnChanges {
       datasets: [
         {
           type: 'bar',
-          label: 'Income',
+          label: 'Sale revenue',
           data: this.buckets.map(b => b.income),
           backgroundColor: success,
           borderRadius: 4,
@@ -59,7 +59,7 @@ export class PnlChartComponent implements OnChanges {
         },
         {
           type: 'bar',
-          label: 'Cost',
+          label: 'Purchase cost',
           data: this.buckets.map(b => b.cost),
           backgroundColor: danger,
           borderRadius: 4,

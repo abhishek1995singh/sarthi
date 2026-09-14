@@ -42,12 +42,12 @@ See also [DEPLOY.md](../DEPLOY.md).
 - **Party** — AADHTI, BUYER, MILL, TRANSPORTER
 - **Commodity / variety** — configurable commission, gaushala, bardana mode. Bags on purchase/sale are entered manually (no bag-weight setting).
 - **Purchase** — draft → confirm (stock in + bardana). No Unpaid / Partial / Paid on the purchase; money is party ledger / cash book. Direct net payable = gross **+ gaushala + commission − cash discount**. Indirect is gross only.
-- **Sale** — draft → confirm (stock out); receipts similarly
+- **Sale** — draft → confirm (stock out); receipts similarly. No commission on sales (removed Sep 2026) — total = base + tax + labour + transport; `commissionAmount` column/field still exists but is always written as 0 (no migration; kept for API shape stability only)
 - **Cash book** — daily receipts/payments; posts to party ledger; opening balance / finalize day; **NEW:** paginated all-entries view with date filters
 - **Ledger** — party outstanding, that party’s purchases (bills only, no Unpaid/Paid), paginated cash entries; Record Payment posts to cash book
 - **Bardana** — bag exchange / cost-included tracking
 - **Stock** — per variety weight + bags
-- **P&L (Reports > P&L tab)** — agent's own profit, not a trading margin: `income = Σ sale.commissionAmount` (buyer pays this, it's the agent's earning) minus `cost = Σ (purchase.gaushalaAmount + purchase.commissionAmount)` (these are added to `netPayable` to the AADHTI supplier, i.e. paid out, per `DirectPurchaseBill`). Bucketed daily (≤31d range) / weekly (≤120d) / monthly (longer), `GET /reports/pnl?from=&to=` → `PnLReportResponse`. Chart rendered with `chart.js` + `ng2-charts` (new FE deps, `provideCharts()` in `app.config.ts`) — first chart library in the app; use `app-pnl-chart` (`shared/ui/pnl-chart/`) as the pattern for any future chart (reads theme colors from CSS vars in `ngOnChanges`, no chart lib theme reactivity beyond that).
+- **P&L (Reports > P&L tab)** — trading margin, not agent-income: `income = Σ sale.totalAmount` minus `cost = Σ purchase.netPayable`. (Originally defined as sale-commission income minus purchase gaushala+commission cost, but sales no longer charge commission — see Sale note above — so it was redefined to this simpler buy/sell spread.) Bucketed daily (≤31d range) / weekly (≤120d) / monthly (longer), `GET /reports/pnl?from=&to=` → `PnLReportResponse`. Chart rendered with `chart.js` + `ng2-charts` (FE deps, `provideCharts()` in `app.config.ts`) — first chart library in the app; use `app-pnl-chart` (`shared/ui/pnl-chart/`) as the pattern for any future chart (reads theme colors from CSS vars in `ngOnChanges`, no chart lib theme reactivity beyond that).
 - **Users** — single company install; roles `OWNER` | `STAFF`
 - **Audit** — money + masters + auth (not commodities/stock/bardana/reports)
 
@@ -186,6 +186,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-09-14 — Remove sale commission; redefine P&L as sale-vs-purchase trading margin (fb9ea49)
 - 2026-09-13 — Add P&L chart to Reports (44d0ce4)
 - 2026-09-12 — Fix stale commit hash in knowledge base log after amend (ac8fbed)
 - 2026-09-12 — Visual revamp: shared UI primitives and wider page layouts (18bd7ec)

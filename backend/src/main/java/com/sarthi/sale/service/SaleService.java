@@ -147,19 +147,17 @@ public class SaleService {
         BigDecimal qty = sale.getQuantityQuintals();
         BigDecimal base = qty.multiply(rate).setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal commission = base.multiply(settings.getCommissionRate())
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal tax = base.multiply(settings.getSaleTaxRate())
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal labour = labourOverride != null
                 ? labourOverride.setScale(2, RoundingMode.HALF_UP)
                 : computeLabour(settings, qty, sale.getBags());
 
-        BigDecimal total = base.add(commission).add(tax).add(labour).add(sale.getTransportCharge())
+        BigDecimal total = base.add(tax).add(labour).add(sale.getTransportCharge())
                 .setScale(2, RoundingMode.HALF_UP);
 
         sale.setRatePerQuintal(rate);
-        sale.setCommissionAmount(commission);
+        sale.setCommissionAmount(BigDecimal.ZERO);
         sale.setTaxAmount(tax);
         sale.setLabourCharge(labour);
         sale.setTotalAmount(total);
@@ -176,18 +174,15 @@ public class SaleService {
                 ? labourOverride.setScale(2, RoundingMode.HALF_UP)
                 : computeLabour(settings, sale.getQuantityQuintals(), sale.getBags());
 
-        BigDecimal commission = BigDecimal.ZERO;
         BigDecimal tax = BigDecimal.ZERO;
         BigDecimal rate = request.ratePerQuintal();
         BigDecimal total;
 
         if (rate != null) {
             BigDecimal base = sale.getQuantityQuintals().multiply(rate).setScale(2, RoundingMode.HALF_UP);
-            commission = base.multiply(settings.getCommissionRate())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             tax = base.multiply(settings.getSaleTaxRate())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            total = base.add(commission).add(tax).add(labour).add(sale.getTransportCharge())
+            total = base.add(tax).add(labour).add(sale.getTransportCharge())
                     .setScale(2, RoundingMode.HALF_UP);
         } else {
             if (request.totalAmount() == null) {
@@ -197,7 +192,7 @@ public class SaleService {
         }
 
         sale.setRatePerQuintal(rate);
-        sale.setCommissionAmount(commission);
+        sale.setCommissionAmount(BigDecimal.ZERO);
         sale.setTaxAmount(tax);
         sale.setLabourCharge(labour);
         sale.setTotalAmount(total);

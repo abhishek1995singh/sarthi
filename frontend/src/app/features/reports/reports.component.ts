@@ -266,11 +266,11 @@ interface TabDef {
           <div class="hero-range">{{ pnl.from }} → {{ pnl.to }}</div>
           <div class="hero-meta">
             <div>
-              <span>Income (sale commission)</span>
+              <span>Sale revenue</span>
               <strong class="text-success">₹{{ pnl.totalIncome | number:'1.0-0' }}</strong>
             </div>
             <div>
-              <span>Cost (gaushala + commission)</span>
+              <span>Purchase cost</span>
               <strong class="text-danger">₹{{ pnl.totalCost | number:'1.0-0' }}</strong>
             </div>
             <div>

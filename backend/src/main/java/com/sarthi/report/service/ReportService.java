@@ -140,10 +140,10 @@ public class ReportService {
                 .findBySaleDateBetweenOrderBySaleDateAscIdAsc(from, to);
 
         BigDecimal totalIncome = sales.stream()
-                .map(Sale::getCommissionAmount)
+                .map(Sale::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCost = purchases.stream()
-                .map(p -> p.getGaushalaAmount().add(p.getCommissionAmount()))
+                .map(Purchase::getNetPayable)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<LocalDate[]> periods = buildPeriods(from, to);
@@ -154,11 +154,11 @@ public class ReportService {
 
             BigDecimal income = sales.stream()
                     .filter(s -> !s.getSaleDate().isBefore(periodStart) && !s.getSaleDate().isAfter(periodEnd))
-                    .map(Sale::getCommissionAmount)
+                    .map(Sale::getTotalAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal cost = purchases.stream()
                     .filter(p -> !p.getPurchaseDate().isBefore(periodStart) && !p.getPurchaseDate().isAfter(periodEnd))
-                    .map(p -> p.getGaushalaAmount().add(p.getCommissionAmount()))
+                    .map(Purchase::getNetPayable)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             buckets.add(new PnLReportResponse.PnLBucket(

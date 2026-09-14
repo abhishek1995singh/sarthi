@@ -1467,9 +1467,6 @@ export class SaleListComponent implements OnInit {
       lines.push({ label: this.i18n.t('sale.billing.fob'), amount: base || s.totalAmount, subdued: true });
     }
 
-    if (s.commissionAmount > 0) {
-      lines.push({ label: this.i18n.t('sale.billing.commission'), amount: s.commissionAmount });
-    }
     if (s.taxAmount > 0) {
       lines.push({ label: this.i18n.t('sale.billing.tax'), amount: s.taxAmount });
     }
