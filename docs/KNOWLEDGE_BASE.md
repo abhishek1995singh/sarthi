@@ -33,6 +33,8 @@ Grain merchant & commission agent (**Pakki Aadhat**) desk app: purchases, sales,
 
 **VPS backups:** `./deploy/deploy.sh` (or `./deploy/deploy.sh backup`) writes gzipped dumps to `/var/backups/sarthi/` and copies them to local `deploy/backups/`. Restore with `./deploy/deploy.sh restore`.
 
+**Automated daily backups (added Sep 2026):** `cron` was installed on the VPS (Debian image had none by default — `apt-get install cron`, `systemctl enable --now cron`) with a root crontab entry running `deploy/postgres-backup.sh backup` daily at `30 21 * * *` (21:30 UTC ≈ 3:00 AM IST), keeping the last 30 dumps (`BACKUP_KEEP=30`) in `/var/backups/sarthi/`, logging to `/var/log/sarthi-backup.log`. This is independent of the deploy-triggered backup. Check/edit with `ssh root@<vps-ip> crontab -l` / `crontab -e`. Data was reset (wiped to clean seed data) on 2026-09-18 for testing — production had zero real transactions at that point.
+
 See also [DEPLOY.md](../DEPLOY.md).
 
 ---
@@ -186,6 +188,7 @@ git config core.hooksPath .githooks   # once per clone
 ## Recent commits
 
 <!-- kb-commit-log:start -->
+- 2026-09-18 — Document daily VPS backup cron and prod data reset (de177a6)
 - 2026-09-14 — Remove sale commission; redefine P&L as sale-vs-purchase trading margin (fb9ea49)
 - 2026-09-13 — Add P&L chart to Reports (44d0ce4)
 - 2026-09-12 — Fix stale commit hash in knowledge base log after amend (ac8fbed)
